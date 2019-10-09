@@ -36,10 +36,10 @@ Create a new SmartmeterStats device.
 
 The initial device exposes only the "input" variable ${id}.{input}. This is the result of the expression and will be updated if one of the expression variables changes. 
 The available statistics variables are:
-- hour - the increase of the input value in the last hour; ${id}.hour
-- day - the increase of the input value in the last day; ${id}.day
-- week - the increase of the input value in the last week; ${id}.week
-- month - the increase of the input value in the last month; ${id}.month
+- hour - the increase of the input value in the last hour
+- day - the increase of the input value in the last day (00:00-23:59)
+- week - the increase of the input value in the last week (monday-sunday)
+- month - the increase of the input value in the last month
 
 On init of the plugin the first readout is based on the time left till the next full hour, day(00:00), week (monday) or month (1ste).
 
