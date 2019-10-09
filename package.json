@@ -1,0 +1,30 @@
+{
+  "name": "pimatic-smartmeter-stats",
+  "description": "Get energy statistics from a smartMeter devices in pimatic",
+  "author": {
+    "name": "Bert Gierveld",
+    "email": "gitbertreb@gmail.com",
+    "url": "https://github.com/bertreb"
+  },
+  "main": "pimatic-smartmeter-stats",
+  "homepage": "https://github.com/bertreb/pimatic-smartmeter-stats.git",
+  "keywords": [
+    "pimatic",
+    "devices",
+    "smartmeter",
+    "statistics"
+  ],
+  "version": "0.0.2",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bertreb/pimatic-smartmeter-stats.git"
+  },
+  "configSchema": "pimatic-smartmeter-stats-config-schema.coffee",
+  "peerDependencies": {
+    "pimatic": "0.9.*"
+  },
+  "engines": {
+    "node": ">=4",
+    "npm": ">=2"
+  }
+}
