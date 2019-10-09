@@ -1,11 +1,11 @@
 pimatic-smartmeter-stats
 ===================
 
-Creating statistics from smartmeter values. This plugin reads any smartmeter value that changes over time. The values are showing the change of the value over the last hour, day, week or month. 
+Creating statistics from smartmeter values. This plugin reads any smartmeter value that increases over time. The generated values are showing the increase of the value over the last hour, day, week or month.
 
 Installation
 ------------
-To enable the smartmeter plugin add this to the plugins section via the GUI or add it in the config.json file.
+To enable the smartmeter-stats plugin add this to the plugins section via the GUI or add it in the config.json file.
 
 ```
 ...
