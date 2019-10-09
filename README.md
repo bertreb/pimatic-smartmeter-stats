@@ -1,7 +1,7 @@
 pimatic-smartmeter-stats
 ===================
 
-Creating energy statistics from smartmeter values. This plugin reads any (smartmeter) value that changes over time. The values are showing the change of the value over the last hour, day, week or month.
+Creating statistics from smartmeter values. This plugin reads any smartmeter value that changes over time. The values are showing the change of the value over the last hour, day, week or month. 
 
 Installation
 ------------
