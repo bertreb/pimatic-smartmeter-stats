@@ -1,7 +1,7 @@
 pimatic-smartmeter-stats
 ===================
 
-Creating energy statistics from smartmeter values. This plugin reads an energy consumption or production values that increases over time. The values are showing the delta of the value over the last hour, day, week or month.
+Creating energy statistics from smartmeter values. This plugin reads any (smartmeter) value that changes over time. The values are showing the change of the value over the last hour, day, week or month.
 
 Installation
 ------------
@@ -36,10 +36,10 @@ Create a new SmartmeterStats device.
 
 The initial device exposes only the "input" variable ${id}.{input}. This is the result of the expression and will be updated if one of the expression variables changes. 
 The available statistics variables are:
-- hour - the increase of the input value in the last hour
-- day - the increase of the input value in the last day (00:00-23:59)
-- week - the increase of the input value in the last week (monday-sunday)
-- month - the increase of the input value in the last month
+- hour - the change of the expression input value in the last hour
+- day - the change of the input value in the last day (00:00-23:59)
+- week - the change of the input value in the last week (monday-sunday)
+- month - the change of the input value in the last month
 
 On init of the plugin the first readout is based on the time left till the next full hour, day(00:00), week (monday) or month (1ste).
 
