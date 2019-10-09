@@ -21,10 +21,10 @@ After restart of Pimatic the SmartmeterObis device can be added. Below the setti
 {
   "id": "smartmeter-stats",
   "class": "SmartmeterStatsDevice",
-  "input": "<name>", // the generated name for the used input value (is result of expression)
-  "expression": "....." // The used input variable or expression string
-  "unit": "" // the used unit for the values, examples kWh, m3, etc
-  "statistics": ["hour", "day", "week", "month"] // the used timeschale and name of the resulting variable
+  "input": "<name>", // The generated name for the input value (is result of expression)
+  "expression": "....." // The input variable or expression string
+  "unit": "" // The unit for the values, examples kWh, m3, etc
+  "statistics": ["hour", "day", "week", "month"] // The timescale and name of the resulting variable
   "test": boolean 
 }
 ```
