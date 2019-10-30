@@ -2,55 +2,99 @@ module.exports = (env) ->
   Promise = env.require 'bluebird'
   assert = env.require 'cassert'
   types = env.require('decl-api').types
- 
+  fs = env.require('fs')
+  M = env.matcher
+  Moment = require 'moment-timezone'
+  path = require 'path'
+  _ = env.require('lodash')
+
+
+  CronJob = env.CronJob or require('cron').CronJob
+
+  # cron definitions
+  everyHour = "0 0 * * * *"
+  everyDay = "0 1 0 * * *" # at midnight at 00:01
+  everyWeek = "0 2 0 * * 1" # monday at 00:02
+  everyMonth = "0 3 0 1 * *" # first day of the month at 00:03
+
+  # cron test definitions
+  everyHourTest = "0,30 * * * * *" # every 30 seconds
+  everyDayTest = "2 */2 * * * *" # every 2 minutes + 2 seconds
+  everyWeekTest = "20 */3 * * * *" # every 3 minutes and 5 seconds
+  everyMonthTest = "30 */5 * * * *" #every 5 minutes and 10 seconds
+
   class SmartmeterStatsPlugin extends env.plugins.Plugin
     init: (app, @framework, @config) =>
+      
+      @dirPath = path.resolve @framework.maindir, '../../smartmeter-data'
+      if !fs.existsSync(@dirPath)
+        fs.mkdirSync(@dirPath)
+
       deviceConfigDef = require('./device-config-schema')
       @framework.deviceManager.registerDeviceClass('SmartmeterStatsDevice', {
         configDef: deviceConfigDef.SmartmeterStatsDevice,
         createCallback: (config, lastState) => new SmartmeterStatsDevice(config, lastState, @framework)
       })
-  
+      @framework.deviceManager.registerDeviceClass('SmartmeterDegreedaysDevice', {
+        configDef: deviceConfigDef.SmartmeterDegreedaysDevice,
+        createCallback: (config, lastState) => new SmartmeterDegreedaysDevice(config, lastState, @framework, @dirPath)
+      })
+
+      @framework.ruleManager.addActionProvider(new SmartmeterDegreedaysActionProvider @framework, @config)
+
+
   plugin = new SmartmeterStatsPlugin
- 
+
   class SmartmeterStatsDevice extends env.devices.Device
-
-    actual: 0.0
-    hour: 0.0
-    day: 0.0
-    week: 0.0
-    month: 0.0
-
+       
     constructor: (@config, lastState, @framework) ->
+
       @id = @config.id
       @name = @config.name
-      @input = @config.input
+
       @expression = @config.expression
-      @startHour = if @config.startHour? then @config.startHour else 0
-      @unit = if @config.unit? then @config.unit else "string"
+      @unit = if @config.unit? then @config.unit else ""
       @_vars = @framework.variableManager
       @_exprChangeListeners = []
-      @_lastHour = 0.0
-      @_lastDay = 0.0
-      @_lastWeek = 0.0
-      @_lastMonth = 0.0
-      @init = true
+      @attributeValues = []
+
+      @framework.on 'after init', =>
+        @attributeValues["actual"] = lastState?.actual?.value or 0.0
+        @attributeValues["hour"] = lastState?.hour?.value or 0.0
+        @attributeValues["lasthour"] = lastState?.lasthour?.value or 0.0
+        @attributeValues["day"] = lastState?.day?.value or 0.0
+        @attributeValues["lastday"] = lastState?.lastday?.value or 0.0
+        @attributeValues["week"] = lastState?.week?.value or 0.0
+        @attributeValues["lastweek"] = lastState?.lastweek?.value or 0.0
+        @attributeValues["month"] = lastState?.month?.value or 0.0
+        @attributeValues["lastmonth"] = lastState?.lastmonth?.value or 0.0
+        @init = true
 
       @attributes = {}
+     
+      @attributes["actual"] =
+        description: "actual energy consumption"
+        type: types.number
+        unit: @unit
+        acronym: "actual"
+        hidden: true
+      for _attrName in ["hour", "lasthour", "day", "lastday", "week", "lastweek", "month", "lastmonth"]
+        @_createGetter(_attrName, =>
+            return Promise.resolve @attributeValues[_attrName]
+        )
+        @attributes[_attrName] =
+          description: _attrName + " value"
+          type: types.number
+          unit: @unit
+          acronym: _attrName
+          hidden: true
+
+      @updateJobs = []
 
       @expression = @expression.replace /(^[a-z])|([A-Z])/g, ((match, p1, p2, offset) =>
               (if offset>0 then " " else "") + match.toUpperCase())
 
-      @attributes[@input] = {
-        name: @input
-        acronym: @input
-        description: "The name of the input variable."
-        type: types.number
-        unit: @unit
-      }
-
       parseExprAndAddListener = ( () =>
-        #env.logger.info input.expression
         @_info = @_vars.parseVariableExpression(@expression)
         @_vars.notifyOnChange(@_info.tokens, onChangedVar)
         @_exprChangeListeners.push onChangedVar
@@ -68,13 +112,13 @@ module.exports = (env) ->
 
       onChangedVar = ( (changedVar) =>
         evaluateExpr().then( (val) =>
-          @emit @input, val
-          @actual = val
-          if @init # set all lastValues to the current input value
-            @_lastHour = val
-            @_lastDay = val
-            @_lastWeek = val
-            @_lastMonth = val
+          @emit "actual", val
+          @attributeValues["actual"] = val
+          if @init == true # set all lastValues to the current input value
+            @attributeValues["lasthour"] = val unless @attributeValues["lasthour"] isnt 0
+            @attributeValues["lastday"] = val  unless @attributeValues["lastday"] isnt 0
+            @attributeValues["lastweek"] = val unless @attributeValues["lastweek"] isnt 0
+            @attributeValues["lastmonth"] = val unless @attributeValues["lastmonth"] isnt 0
             @init = false
         )
       )
@@ -86,86 +130,474 @@ module.exports = (env) ->
             parseExprAndAddListener()
           return evaluateExpr(varsInEvaluation)
         ).then( (val) =>
-          if val isnt @_attributesMeta[@input].value
-            @emit @input, val
+          if val isnt @_attributesMeta["actual"].value
+            @emit "actual", val
           return val
         )
       )
-      #env.logger.info @source + " ==== " + getValue
-      @_createGetter(@input, getValue)
+      @_createGetter("actual", getValue)
 
+      # create CronJobs for all the required timers for hour, day, week and month
       for attributeName in @config.statistics
         do (attributeName) =>
-          @attributes[attributeName] =
-            name: attributeName
-            type: types.number
-            description: attributeName
-            acronym: attributeName
-            unit: @unit
+          @attributes[attributeName].hidden = false
+          @attributes[attributeName].unit = @unit
+
           switch attributeName
             when "hour"
-              @_createGetter attributeName, () =>
-                return Promise.resolve @hour
+              @updateJobs.push new CronJob
+                cronTime:  if @config.test then everyHourTest else everyHour
+                onTick: => 
+                  @attributeValues["hour"] = @attributeValues["actual"] - @attributeValues["lasthour"]
+                  @attributeValues["lasthour"] = @attributeValues["actual"]
+                  @emit "hour", @attributeValues["hour"]
+                  @emit "lasthour", @attributeValues["lasthour"]
             when "day"
-              @_createGetter attributeName, () =>
-                return Promise.resolve @day
+              @updateJobs.push new CronJob
+                cronTime: if @config.test then everyDayTest else everyDay
+                onTick: => 
+                  @attributeValues["day"] = @attributeValues["actual"] - @attributeValues["lastday"]
+                  @attributeValues["lastday"] = @attributeValues["actual"]
+                  @emit "day", @attributeValues["day"]
+                  @emit "lastday", @attributeValues["lastday"]
             when "week"
-              @_createGetter attributeName, () =>
-                return Promise.resolve @week
+              @updateJobs.push new CronJob
+                cronTime: if @config.test then everyWeekTest else everyWeek 
+                onTick: => 
+                  @attributeValues["week"] = @attributeValues["actual"] - @attributeValues["lastweek"]
+                  @attributeValues["lastweek"] = @attributeValues["actual"]
+                  @emit "week", @attributeValues["week"]
+                  @emit "lastweek", @attributeValues["lastweek"]
             when "month"
-              @_createGetter attributeName, () =>
-                return Promise.resolve @month
-
-    
-
-      scheduleUpdate = () =>
-        timestamp = new Date()
-        @_updateTimeout = setTimeout =>
-          if @_destroyed then return
-          for attributeName in @config.statistics
-            do (attributeName) =>
-              switch attributeName
-                when "hour"
-                  @hour = if (!(@_lastHour?) or @_lastHour == 0) then 0 else @actual - @_lastHour
-                  @_lastHour = @actual
-                  @emit "hour", @hour
-                when "day"
-                  if (timestamp.getHours() == 0 && timestamp.getMinutes() == 0) || @config.test # for testing
-                    @day = if (!(@_lastDay?) or @_lastDay == 0) then 0 else @actual - @_lastDay
-                    @_lastDay = @actual
-                    @emit "day", @day
-                when "week"
-                  # test on start of week WeekDays == 1 (monday)
-                  if (timestamp.getDay() == 1 && timestamp.getHours() == 0 && timestamp.getMinutes() == 0) || @config.test # for testing
-                    @week = if (!(@_lastWeek?) or @_lastWeek == 0) then 0 else @actual - @_lastWeek
-                    @_lastWeek = @actual
-                    @emit "week", @week
-                # test on start of Month == 1 (first day of month)
-                when "month"
-                  if (timestamp.getDate() == 1 && timestamp.getHours() == 0 && timestamp.getMinutes() == 0 ) || @config.test # for testing
-                    @month = if (!(@_lastMonth?) or @_lastMonth == 0) then 0 else @actual - @_lastMonth
-                    @_lastMonth= @actual
-                    @emit "month", @month
-          scheduleUpdate()
-        , @setTimerOnHour(timestamp) # on the hour heartbeat
-        
-      scheduleUpdate();
+              @updateJobs.push new CronJob
+                cronTime: if @config.test then everyMonthTest else everyMonth
+                onTick: => 
+                  @attributeValues["month"] = @attributeValues["actual"] - @attributeValues["lastmonth"]
+                  @attributeValues["lastmonth"] = @attributeValues["actual"]
+                  @emit "month", @attributeValues["month"]
+                  @emit "lastmonth", @attributeValues["lastmonth"]
+      if @updateJobs?
+        for jb in @updateJobs
+          jb.start()
 
       super()
-
-
-    setTimerOnHour: (timestamp) =>
-      # calculate millisec to next full hour
-      if @config.test
-        # 60 times faster timer for testing. 1 Hour is 1 Minute 
-        return 60000 - 1000 * timestamp.getSeconds()
-      else
-        # normal timer every hour
-        return 3600000 - 60000 * timestamp.getMinutes() - 1000 * timestamp.getSeconds()
 
     destroy: ->
       @_vars.cancelNotifyOnChange(cl) for cl in @_exprChangeListeners
-      clearTimeout(@_updateTimeout)
+      if @updateJobs?
+        jb.stop() for jb in @updateJobs
       super()
+
+
+  class SmartmeterDegreedaysDevice extends env.devices.Device
+
+    actions:
+      resetSmartmeterDegreedays:
+        description: "Resets the stats attribute values"
+    attributes:
+      status:
+        description: "Status of the data processing"
+        type: "string"
+        unit: ''
+        acronym: 'data'
+        default: "init"
+      statusLevel:
+        description: "status of data processing"
+        type: types.number
+        acronym: 'statusLevel'
+        default: 1
+        hidden: true
+      temperatureHour:
+        description: "Last hour average outdoor temperature"
+        type: types.number
+        unit: '°C'
+        acronym: 'ToH'
+        default: 0.0
+        displayFormat: "fixed, decimals:1"
+      temperatureInHour:
+        description: "Last hour average indoor temperature"
+        type: types.number
+        unit: '°C'
+        acronym: 'TiH'
+        default: null
+        displayFormat: "fixed, decimals:1"
+        hidden: true
+      windspeedHour:
+        description: "Last hour average windspeed"
+        type: types.number
+        unit: 'm/s'
+        acronym: 'Wi-H'
+        default: 0.0
+        displayFormat: "fixed, decimals:1"
+        hidden: true
+      energyHour:
+        description: "Last hour energy usage"
+        type: types.number
+        unit: ''
+        default: 0.0
+        acronym: 'E-H'
+        displayFormat: "fixed, decimals:1"
+      degreedaysHour:
+        description: "Last hour degreedays"
+        type: types.number
+        unit: ''
+        default: 0.0
+        acronym: '°dayH'
+        displayFormat: "fixed, decimals:1"
+      efficiencyHour:
+        description: "Last hour efficiency ratio (e-index)"
+        type: types.number
+        unit: 'E/°day'
+        default: 0.0
+        acronym: 'e-indexH'
+        displayFormat: "fixed, decimals:1"
+      temperatureDay:
+        description: "Yesterdays average outdoor temperature"
+        type: types.number
+        unit: '°C'
+        acronym: 'ToD'
+        default: 0.0
+        displayFormat: "fixed, decimals:1"
+      temperatureInDay:
+        description: "Yesterdays average indoor temperature"
+        type: types.number
+        unit: '°C'
+        acronym: 'TiD'
+        default: null
+        displayFormat: "fixed, decimals:1"
+        hidden: true
+      windspeedDay:
+        description: "Yesterdays average windspeed"
+        type: types.number
+        unit: 'm/s'
+        acronym: 'W-D'
+        default: 0.0
+        displayFormat: "fixed, decimals:1"
+        hidden: true
+      energyDay:
+        description: "Yesterdays energy usage"
+        type: types.number
+        unit: ''
+        default: 0.0
+        acronym: 'E-D'
+        displayFormat: "fixed, decimals:1"
+      degreedaysDay:
+        description: "Yesterdays degreedays"
+        type: types.number
+        unit: ''
+        default: 0.0
+        acronym: '°dayD'
+        displayFormat: "fixed, decimals:1"
+      efficiencyDay:
+        description: "Yesterdays efficiency ratio (e-index)"
+        type: types.number
+        unit: 'E/°day'
+        default: 0.0
+        acronym: 'e-indexD'
+        displayFormat: "fixed, decimals:1"
+
+    constructor: (@config, lastState, @framework, @dirPath) ->
+      @id = @config.id
+      @name = @config.name
+      @test = @config.test
+      @vars = if @config.stats? then @config.stats else null#.properties
+      @temperatureName = if @config.temperature[0] == "$" then @config.temperature.substr(1) else @config.temperature
+      @temperatureInName = if @config.temperatureIn? then @config.temperatureIn else ""
+      @energyName = if @config.energy[0] == "$" then @config.energy.substr(1) else @config.energy
+      @baseTemperature = if @config.baseTemperature? then @config.baseTemperature else 18.0
+      @windspeedName =  if @config.windspeed? then @config.windspeed else ""
+      if @temperatureInName[0]== "$" then @temperatureInName = @temperatureInName.substr(1)
+      if @windspeedName[0]== "$" then @windspeedName = @windspeedName.substr(1)
+      for _attrName in ["energyHour", "energyDay"]
+        @attributes[_attrName].unit = if @config.energyUnit? then @config.energyUnit else ""
+      @logging = if @config.log? then @config.log else "none"
+
+      @tempSampler = new Sampler()
+      @tempInSampler = new Sampler()
+      @windspeedSampler = new Sampler()
+      @degreedaysSampler = new Sampler()
+
+      @states = ["off", "init", "processing 1st day", "yesterday"]
+
+      @attributeValues = {}
+      for _attrName of @attributes
+        do (_attrName) =>
+          if _attrName == "status"
+            @attributeValues[_attrName] = ""
+          else
+            @attributeValues[_attrName] = 0
+
+      for _attrName in ["lastEnergyHour", "lastEnergyDay"]
+        @attributes[_attrName] =
+          description: _attrName + " value"
+          type: types.number
+          default: 0.0
+          hidden: true
+      #test
+
+      @attributeValues.temperatureHour = lastState?.temperatureHour?.value or 0.0
+      @attributeValues.temperatureDay = lastState?.temperatureDay?.value or 0.0
+      @attributeValues.temperatureInHour = lastState?.temperatureInHour?.value or 0.0
+      @attributeValues.temperatureInDay = lastState?.temperatureInDay?.value or 0.0
+      @attributeValues.windspeedHour = lastState?.windspeedHour?.value or 0.0
+      @attributeValues.windspeedDay = lastState?.windspeedDay?.value or 0.0
+      @attributeValues.energyHour = lastState?.energyHour?.value or 0.0
+      @attributeValues.energyDay = lastState?.energyDay?.value or 0.0
+      @attributeValues.lastEnergyHour = lastState?.lastEnergyHour?.value or 0.0
+      @attributeValues.lastEnergyDay = lastState?.lastEnergyDay?.value or 0.0
+      @attributeValues.degreedaysHour = lastState?.degreedaysHour?.value or 0.0
+      @attributeValues.degreedaysDay = lastState?.degreedaysDay?.value or 0.0
+      @attributeValues.efficiencyHour = lastState?.efficiencyHour?.value or 0.0
+      @attributeValues.efficiencyDay = lastState?.efficiencyDay?.value or 0.0
+      @attributeValues.statusLevel = lastState?.statusLevel?.value or 1
+      @attributeValues.status = lastState?.status?.value or ""
+
+
+      for _attrName of @attributes
+        do (_attrName) =>
+          @attributes[_attrName].hidden = true
+          @_createGetter(_attrName, =>
+            return Promise.resolve @attributeValues[_attrName]          
+          )      
+      for key, _attrName of @vars
+        @attributes[_attrName].hidden = false
+
+      @ddLogFullFilename = path.join(@dirPath, './' + @id + '-data.json')
+      
+      @updateJobs2 = []
+
+      unless @framework.variableManager.getVariableByName(@temperatureName)?
+        throw new Error("'" + @temperatureName + "' does not excist")
+      unless @framework.variableManager.getVariableByName(@temperatureInName)? or @temperatureInName is ""
+        throw new Error("'" + @temperatureInName + "' does not excist")
+      unless @framework.variableManager.getVariableByName(@windspeedName)? or @windspeedName is ""
+        throw new Error("'" + @windspeedName + "' does not excist")
+      unless @framework.variableManager.getVariableByName(@energyName)?
+        throw new Error("'" + @energyName + "' does not excist")
+
+      @updateJobs2.push new CronJob
+        cronTime: if @test then everyHourTest else everyHour
+        onTick: =>
+          if @test then env.logger.info "HourTest update"
+          _temp = Number @framework.variableManager.getVariableByName(@temperatureName).value
+          _tempIn = if @temperatureInName isnt "" then Number @framework.variableManager.getVariableByName(@temperatureInName).value else _tempIn = null
+          _windspeed = if @windspeedName isnt "" then Number @framework.variableManager.getVariableByName(@windspeedName).value else _windspeed = null
+          _energy = Number @framework.variableManager.getVariableByName(@energyName).value
+
+          if @attributeValues.lastEnergyHour == null then @attributeValues.lastEnergyHour = _energy
+          if @attributeValues.lastEnergyDay == null then @attributeValues.lastEnergyDay = _energy
+
+          @attributeValues.temperatureHour = _temp  # average value
+          @attributeValues.temperatureInHour = _tempIn   # average value
+          @attributeValues.windspeedHour = _windspeed  # average value
+          @attributeValues.energyHour = _energy - @attributeValues.lastEnergyHour   # 1 hour energy comsumption
+          @attributeValues.lastEnergyHour = _energy
+
+          #add hour values to samlers for day calculation
+          @tempSampler.addSample @attributeValues.temperatureHour
+          @tempInSampler.addSample @attributeValues.temperatureInHour
+          @windspeedSampler.addSample @attributeValues.windspeedHour
+          _dd = @_calcDegreeday(@baseTemperature, _temp, _windspeed) # calc degreedays Hour for current temperature and wind
+          @degreedaysSampler.addSample _dd
+          @attributeValues.efficiencyHour = if _dd > 0 then (@attributeValues.energyHour/_dd) else 0
+          @attributeValues.degreedaysHour = _dd
+          
+          if @logging == "hour"
+            @framework.variableManager.waitForInit().then( =>
+              for _attrName of @attributes
+                do (_attrName) =>
+                  @emit _attrName, @attributeValues[_attrName]
+            )
+            @_log(
+              @attributeValues.temperatureHour, 
+              @attributeValues.temperatureInHour, 
+              @attributeValues.windspeedHour, 
+              @attributeValues.energyHour, 
+              @attributeValues.degreedaysHour,
+              @attributeValues.efficiencyHour 
+            )
+
+      @updateJobs2.push new CronJob
+        cronTime: if @test then everyDayTest else everyDay
+        onTick: =>
+          if @test then env.logger.info "DayTest update"
+          @attributeValues.statusLevel +=1 unless @attributeValues.statusLevel >= 3
+          if @attributeValues.statusLevel == 3
+            moment = Moment(new Date())
+            timestampDatetime = moment.format("YYYY-MM-DD HH:mm")
+            @states[3] = timestampDatetime
+          @attributeValues.status = @states[@attributeValues.statusLevel]
+
+          # calculate full day values
+          _energy = Number @framework.variableManager.getVariableByName(@energyName).value # the actual energy value
+          @attributeValues.temperatureDay = @tempSampler.getAverage true
+          @attributeValues.temperatureInDay = @tempInSampler.getAverage true
+          @attributeValues.windspeedDay = @windspeedSampler.getAverage true
+          @attributeValues.energyDay = _energy - @attributeValues.lastEnergyDay
+          @attributeValues.degreedaysDay = @degreedaysSampler.getAverage true
+          @attributeValues.efficiencyDay = if @attributeValues.degreedaysDay > 0 then (@attributeValues.energyDay / @attributeValues.degreedaysDay) else 0
+
+          @attributeValues.lastEnergyDay = _energy # for usage per day
+         
+          for _attrName of @attributes
+            do (_attrName) =>
+              @emit _attrName, @attributeValues[_attrName]
+
+          if @logging == "day" then @_log(
+            @attributeValues.temperatureDay, 
+            @attributeValues.temperatureInDay, 
+            @attributeValues.windspeedDay, 
+            @attributeValues.energyDay, 
+            @attributeValues.degreedaysDay,
+            @attributeValues.efficiencyDay
+            )
+
+      if @updateJobs2?
+        for jb2 in @updateJobs2
+          jb2.start()
+      
+      super()
+
+    _calcDegreeday: (base, temp, wind) ->
+      currentMonth = (new Date).getMonth() # 0=january
+      factor = 1.0 # April and October
+      factor = 0.8 if currentMonth >= 4 && currentMonth <= 8 # May till September
+      factor = 1.1 if currentMonth <=1 || currentMonth >= 10 # November till March
+      degreeday = factor * ( base - temp + (2/3) * wind)
+      degreeday = 0 unless degreeday > 0
+      return Number degreeday
+
+    _log: (tempOut, tempIn, wind, energy, ddays, eff) ->
+      d = new Date()
+      moment = Moment(d).subtract(1, 'days')
+      timestampDatetime = moment.format("YYYY-MM-DD HH:mm:ss")
+      if fs.existsSync(@ddLogFullFilename)
+        data = fs.readFileSync(@ddLogFullFilename, 'utf8')
+        degreedaysData = JSON.parse(data)
+      else
+        degreedaysData = []
+      
+      try
+        update =
+          id: @id
+          timestamp: timestampDatetime 
+          temp_out: Number tempOut.toFixed(1)
+          temp_in: if tempIn? then Number tempIn.toFixed(1) else null
+          energy: Number energy.toFixed(2)
+          windspeed: if wind? then  Number wind.toFixed(2) else null
+          ddays: Number ddays.toFixed(2)
+          eff: Number eff.toFixed(2)
+        degreedaysData.push update
+        #data is saved once a day
+        if @test then env.logger.info "write '" + timestampDatetime + "' data to log"
+        fs.writeFileSync(@ddLogFullFilename, @prettyCompactJSON(degreedaysData))
+      catch e
+        env.logger.error e.message
+        env.logger.error "log not writen"
+        return
+
+    prettyCompactJSON: (data) ->
+      for v, i in data
+        if i is 0 then str = "[\n\r"
+        str += " " + JSON.stringify(v)
+        if i isnt data.length-1 then str += ",\n\r" else str += "\n\r]"
+      return str
+
+    resetSmartmeterDegreedays: () ->
+      for _attrName of @attributes
+      	do (_attrName) =>
+          @defaultVal = 0
+          switch _attrName
+            when "lastEnergyHour"
+              @defaultVal = @attributeValues.lastEnergyHour
+            when "lastEnergyDay"
+              @defaultVal = @attributeValues.lastEnergyDay
+            else
+            	@defaultVal = @attributes[_attrName].default
+            	@attributeValues[_attrName] = @defaultVal
+        	@emit _attrName, @defaultVal
+      Promise.resolve()
+
+    destroy: ->
+      if @updateJobs2?
+        jb2.stop() for jb2 in @updateJobs2 
+      super()
+
+  class SmartmeterDegreedaysActionProvider extends env.actions.ActionProvider
+    constructor: (@framework) ->
+
+    parseAction: (input, context) =>
+
+      filterDevices = _(@framework.deviceManager.devices).values().filter(
+        (device) => (
+          device.hasAction("resetSmartmeterDegreedays")
+        )
+      ).value()
+
+      device = null
+      action = null
+      match = null
+
+      m = M(input, context).match(['reset '], (m, a) =>
+        m.matchDevice(filterDevices, (m, d) ->
+          last = m.match(' smartmeterDegreedays', {optional: yes})
+          if last.hadMatch()
+            # Already had a match with another device?
+            if device? and device.id isnt d.id
+              context?.addError(""""#{input.trim()}" is ambiguous.""")
+              return
+            device = d
+            action = a.trim()
+            match = last.getFullMatch()
+        )
+      )
+
+      if match?
+        assert device?
+        assert action in ['reset']
+        assert typeof match is "string"
+        return {
+          token: match
+          nextInput: input.substring(match.length)
+          actionHandler: new SmartmeterDegreedaysActionHandler(device)
+        }
+
+        return null
+
+  class SmartmeterDegreedaysActionHandler extends env.actions.ActionHandler
+    constructor: (@device) ->
+
+    setup: ->
+      @dependOnDevice(@device)
+      super()
+
+    # ### executeAction()
+    executeAction: (simulate) =>
+      return (
+        if simulate
+          Promise.resolve __("would reset %s", @device.name)
+        else
+          @device.resetSmartmeterDegreedays().then( => __("reset %s", @device.name) )
+      )
+    # ### hasRestoreAction()
+    hasRestoreAction: -> false
+
+
+  class Sampler
+    constructor: () ->
+      @samples = []
+
+    addSample: (@_sample) ->
+      @samples.push Number @_sample
+
+    getAverage: (reset = false)->
+      result = 0
+      if @samples.length > 0
+        for r in @samples
+          result += r
+        result /= @samples.length
+        if reset
+          @samples = []
+      return result
 
   return plugin
