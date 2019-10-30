@@ -51,7 +51,7 @@ When the plugin is installed (including restart) a SmartmeterDegreedays device c
   "energyUnit": "" // The energy unit in the frontend
   "energyLabel": "" // A custom label for energy to use in the frontend
   "energyAcronym": "" // Acronym for energy to show as value label in the frontend
-  "logging": none | hour | day // Select to have a none, hourly or daily log of the Degreeday values
+  "log": none | hour | day // Select to have a none, hourly or daily log of the Degreeday values
   "test": boolean // Enable to speedup the daily proces to minutes (for testing) 
 }
 ```
