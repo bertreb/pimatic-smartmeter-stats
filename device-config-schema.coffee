@@ -5,13 +5,9 @@ module.exports = {
     type: "object"
     extensions: ["xLink", "xAttributeOptions"]
     properties:
-      input:
-        type: "string"
-        description: "The name of the input attribute."
-        required: true
       expression:
         description: "
-          The expression to use to get the input value. I can be a variable name ($myVar),
+          The expression to use to get the actual input value. I can be a variable name ($myVar),
           a calculation ($myVar + 10) or a string interpolation (\"Test: {$myVar}!\")
           "
         type: "string"
@@ -27,10 +23,75 @@ module.exports = {
         default: []
         format: "table"
         items:
-          enum: ["hour", "day", "week", "month"]
+          enum: ["actual", "hour", "day", "week", "month"]
       test:
         type: "boolean"
         description: "enable to get faster timing for testing (Hour=10 sec, Day=1 minute, Week=3 minutes, Month=10 minutes)"
+        default: false
+  }
+  SmartmeterDegreedaysDevice: {
+    title: "Smartmeter heating options"
+    type: "object"
+    extensions: ["xLink", "xAttributeOptions"]
+    properties:
+      temperature:
+        type: "string"
+        description: "the variable that has the actual outdoor temperature"
+        required: true
+        unit: "°C"
+      energy:
+        description: "the variable that holds the actual total energy value. This can be gas or electricity."
+        type: "string"
+        required: true
+      windspeed:
+        description: "the variable that holds the actual windspeed in m/s."
+        type: "string"
+        required: false
+      temperatureIn:
+        type: "string"
+        description: "The variable that has the actual indoor temperature."
+        required: false
+        unit: ""
+      baseTemperature:
+        description: "The temperature the heating degreedays calculation is based upon"
+        type: "number"
+        unit: "°C"
+        required: true
+        default: 18.0
+      energyUnit:
+        description: "The energy unit in the frontend"
+        type: "string"
+        default: "m3"
+        required: false
+      energyLabel:
+        description: "A custom label to use in the frontend."
+        type: "string"
+        default: "gas"
+        required: false
+      energyAcronym:
+        description: "Acronym to show as value label in the frontend"
+        type: "string"
+        default: "gas"
+        required: false
+      stats:
+        description: "Smartmeter degreedevice variables that will be exposed in the Gui."
+        type: "array"
+        default: []
+        format: "table"
+        items:
+          enum: [
+            "status", 
+            "temperatureHour", "temperatureInHour", "windspeedHour", "energyHour", "degreedaysHour", "efficiencyHour",
+            "temperatureDay", "temperatureInDay", "windspeedDay", "energyDay", "degreedaysDay", "efficiencyDay"
+          ]
+      log:
+        description: "Select to get none, hourly or daily data (in JSON format) in a logfile"
+        type: "string"
+        default: "none"
+        enum: ["none", "hour", "day"]
+      test:
+        type: "boolean"
+        description: "Enable to get faster timing for testing (Hour=10 sec, Day=30 seconds, Week=2 minutes, Month=5 minutes)"
         default: false
   }
 }
