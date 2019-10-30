@@ -58,7 +58,8 @@ When the plugin is installed (including restart) a SmartmeterDegreedays device c
 
 Configuration
 
-The statistics are calculated on a daily bases starting at midnight. The available statistics variables are,
+The statistics are calculated on a daily bases starting at midnight. The statistics variables are available per hour or per day.
+
 Hourly (update at start of every hour):
 - temperatureHour - last hour average outdoor temperature
 - temperatureInHour - last hour average outdoor temperature (optional)
@@ -66,6 +67,7 @@ Hourly (update at start of every hour):
 - windspeedHour - lat hour average windspeed (optional)
 - degreedaysHour - last hour degreeday values (00:00-23:59)
 - efficiencyHour - last hour efficiency factor: (last hour energy consumption) / last hur degreedays
+
 Daily (update at start of day):
 - temperatureDay - yesterdays average outdoor temperature
 - temperatureInDay - yesterdays average outdoor temperature (optional)
