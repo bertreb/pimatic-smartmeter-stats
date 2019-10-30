@@ -14,7 +14,7 @@
     "smartmeter",
     "statistics"
   ],
-  "version": "0.0.2",
+  "version": "0.0.4",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bertreb/pimatic-smartmeter-stats.git"
@@ -22,6 +22,10 @@
   "configSchema": "pimatic-smartmeter-stats-config-schema.coffee",
   "peerDependencies": {
     "pimatic": "0.9.*"
+  },
+  "dependencies": {
+    "cron": "^1.7.2",
+    "moment-timezone": "0.5.*"
   },
   "engines": {
     "node": ">=4",
