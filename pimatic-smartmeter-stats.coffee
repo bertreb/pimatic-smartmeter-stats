@@ -503,7 +503,6 @@ module.exports = (env) ->
       degreeday = 0 unless degreeday > 0
       return Number degreeday
 
-
     resetSmartmeterDegreedays: () ->
       for _attrName of @attributes
       	do (_attrName) =>
