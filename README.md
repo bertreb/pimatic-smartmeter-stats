@@ -5,16 +5,29 @@ Creating statistics from smartmeter values. This plugin contains 2 devices.
 - The SmartmeterDegreedaysDevice uses outdoor temperature and windspeed data and heating energy consumption data (gas, etc) to create degreeday and efficiency values. They are a measure of your heating energy effciency. You can use them to compare your own energy efficiency and what for example isolation measures or lowering the indoor temparture will do.
 - The SmartmeterStatsDevice reads any smartmeter value that increases over time. The generated values are showing the increase of the value over the last hour, day, week or month.
 
+Installation
+------------
+To enable the smartmeter-stats plugin add this to the plugins section via the GUI or add it in the config.json file.
+
+```
+...
+{
+  "plugin": "Smartmeter-stats"
+}
+...
+```
+
 Degreedays
 ------------
-Degree Day is a measure for heating. The so called Heating degree days are typical indicators of household energy consumption for space heating.
+Degreeday is a measure for heating and cooling. The so called Heating degreedays are typical indicators of household energy consumption for space heating. This plugin works only for heating degreedays.
 The degreeday calculation used in the plugin is based on:
 - BaseTemprature: is the outdoor reference temperature for degreeday days, the default is 18°C, and can be changed.
 - Temperature: the outdoor and indoor temperature
 - Windspeed: the windspeed in m/s
+- Month of the year (factor depending on month)
 
 The used formulae for degreedays is:
-     degreedays = BaseTemperature - ( Temperature - 2/3 x windspeed )
+     degreedays = month-factor * (BaseTemperature - ( Temperature - 2/3 x windspeed ))
 
 Only when the result is above 0 the calculated degreeday value is used, otherwise its 0.
 The degreedays are calculated per hour and added up to the daily value. So the day value is based on 24 hour values.
@@ -25,7 +38,7 @@ The used formulae for efficiency is:
 Only when the degreedays are above 0 and energy was consumed, a efficiency factor is calculated, otherwise its 0
 The efficiency is calculated per hour. The daily efficiency is the sum of hour values.
 
-To use the degreedays device you need to have the follwing data variables available in Pimatic:
+To use the degreedays device you need to have the following data variables available in Pimatic:
 - Realtime outdoor temperature
 - Realtime energy total value (not the current usage but the absolute total usage value)
 If available the following variables will increase the quality of the data:
@@ -82,18 +95,7 @@ For longterm usage of the values, a log can be enabled. The log will add at the 
 
 The hourly/daily data is added as a JSON record. The logfile is made compact and readable with one daily data row per day. The logfile is available in a directory called 'smartmeter-data', located in the pimatic home directory of the computer running Pimatic (mostly ../pimatic-app). The log will have the name 'device-name'-data.json.
 
-
-Installation
-------------
-To enable the smartmeter-stats plugin add this to the plugins section via the GUI or add it in the config.json file.
-
-```
-...
-{
-  "plugin": "Smartmeter-stats"
-}
-...
-```
+You can reset the device and set the values to 0 with the command reset 'device name'. This command can be used in rules, so you can create a button to reset the values or reset on any other condition/event.
 
 Stats device
 ------------

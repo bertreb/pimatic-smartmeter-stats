@@ -7,3 +7,5 @@
     * Ready for testing
 * 20191031, V0.0.5
     * added logging for stats device
+* 20191031, V0.0.6
+    * added reset action for degreedaysdevice
