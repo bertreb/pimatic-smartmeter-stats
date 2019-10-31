@@ -3,7 +3,7 @@ pimatic-smartmeter-stats
 
 Creating statistics from smartmeter values. This plugin contains 2 devices.
 - The SmartmeterDegreedaysDevice uses outdoor temperature and windspeed data and heating energy consumption data (gas, etc) to create degreeday and efficiency values. They are a measure of your heating energy effciency. You can use them to compare your own energy efficiency and what for example isolation measures or lowering the indoor temparture will do.
-- The SmartmeterStatsDevice reads any smartmeter value that increases over time. The generated values are showing the increase of the value over the last hour, day, week or month.
+- The SmartmeterStatsDevice reads any smartmeter value that increases over time. The generated values are showing the change of the value over the last hour, day, week or month.
 
 Installation
 ------------
