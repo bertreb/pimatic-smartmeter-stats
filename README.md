@@ -40,7 +40,8 @@ The efficiency is calculated per hour. The daily efficiency is the sum of hour v
 
 To use the degreedays device you need to have the following data variables available in Pimatic:
 - Realtime outdoor temperature
-- Realtime energy total value (not the current usage but the absolute total usage value)
+- Realtime energy total value (not the current usage but the absolute total usage value).
+
 If available the following variables will increase the quality of the data:
 - Realtime windspeed
 - indoor temperature of the main heated mainroom (not yet used)
