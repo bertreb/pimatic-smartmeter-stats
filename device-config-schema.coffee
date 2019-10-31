@@ -24,6 +24,11 @@ module.exports = {
         format: "table"
         items:
           enum: ["actual", "hour", "day", "week", "month"]
+      log:
+        description: "Select to get none, hourly or daily data (in JSON format) in a logfile"
+        type: "string"
+        default: "none"
+        enum: ["none", "hour", "day"]
       test:
         type: "boolean"
         description: "enable to get faster timing for testing (Hour=10 sec, Day=1 minute, Week=3 minutes, Month=10 minutes)"

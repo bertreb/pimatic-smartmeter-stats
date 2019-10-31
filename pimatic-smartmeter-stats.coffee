@@ -33,7 +33,7 @@ module.exports = (env) ->
       deviceConfigDef = require('./device-config-schema')
       @framework.deviceManager.registerDeviceClass('SmartmeterStatsDevice', {
         configDef: deviceConfigDef.SmartmeterStatsDevice,
-        createCallback: (config, lastState) => new SmartmeterStatsDevice(config, lastState, @framework)
+        createCallback: (config, lastState) => new SmartmeterStatsDevice(config, lastState, @framework, @dirPath)
       })
       @framework.deviceManager.registerDeviceClass('SmartmeterDegreedaysDevice', {
         configDef: deviceConfigDef.SmartmeterDegreedaysDevice,
@@ -47,7 +47,7 @@ module.exports = (env) ->
 
   class SmartmeterStatsDevice extends env.devices.Device
        
-    constructor: (@config, lastState, @framework) ->
+    constructor: (@config, lastState, @framework, @dirPath) ->
 
       @id = @config.id
       @name = @config.name
@@ -56,41 +56,47 @@ module.exports = (env) ->
       @unit = if @config.unit? then @config.unit else ""
       @_vars = @framework.variableManager
       @_exprChangeListeners = []
-      @attributeValues = []
+      @logging = if @config.log? then @config.log else "none"
+      @statsLogFullFilename = path.join(@dirPath, './' + @id + '-data.json')
+      @test = @config.test
 
-      @framework.on 'after init', =>
-        @attributeValues["actual"] = lastState?.actual?.value or 0.0
-        @attributeValues["hour"] = lastState?.hour?.value or 0.0
-        @attributeValues["lasthour"] = lastState?.lasthour?.value or 0.0
-        @attributeValues["day"] = lastState?.day?.value or 0.0
-        @attributeValues["lastday"] = lastState?.lastday?.value or 0.0
-        @attributeValues["week"] = lastState?.week?.value or 0.0
-        @attributeValues["lastweek"] = lastState?.lastweek?.value or 0.0
-        @attributeValues["month"] = lastState?.month?.value or 0.0
-        @attributeValues["lastmonth"] = lastState?.lastmonth?.value or 0.0
-        @init = true
-
+      @attributeList = ["actual", "hour", "lasthour", "day", "lastday", "week", "lastweek", "month", "lastmonth"]
       @attributes = {}
-     
-      @attributes["actual"] =
-        description: "actual energy consumption"
-        type: types.number
-        unit: @unit
-        acronym: "actual"
-        hidden: true
-      for _attrName in ["hour", "lasthour", "day", "lastday", "week", "lastweek", "month", "lastmonth"]
-        @_createGetter(_attrName, =>
-            return Promise.resolve @attributeValues[_attrName]
-        )
-        @attributes[_attrName] =
-          description: _attrName + " value"
-          type: types.number
-          unit: @unit
-          acronym: _attrName
-          hidden: true
+      @attributeValues = {}
+
+      _defaultValue = "0.0"
+      _defaultType = "value"
+
+      for _attr in @attributeList
+        do (_attr) =>
+          @attributes[_attr] =
+            description: _attr + " value"
+            type: types.number
+            unit: @unit
+            acronym: _attr
+            hidden: true
+            default: 0.0
+          @attributeValues[_attr] = 0.0
+          @_createGetter(_attr, =>
+              return Promise.resolve @attributeValues[_attr]
+          )
 
       @updateJobs = []
 
+      @attributeValues.actual = lastState?.actual?.value or 0.0
+      @attributeValues.hour = lastState?.hour?.value or 0.0
+      @attributeValues.lasthour = lastState?.lasthour?.value or 0.0
+      @attributeValues.day = lastState?.day?.value or 0.0
+      @attributeValues.lastday = lastState?.lastday?.value or 0.0
+      @attributeValues.week = lastState?.week?.value or 0.0
+      @attributeValues.lastweek = lastState?.lastweek?.value or 0.0
+      @attributeValues.month = lastState?.month?.value or 0.0
+      @attributeValues.lastmonth = lastState?.lastmonth?.value or 0.0
+      @init = true
+
+      #env.logger.info @attributeValues
+
+      @init = false
       @expression = @expression.replace /(^[a-z])|([A-Z])/g, ((match, p1, p2, offset) =>
               (if offset>0 then " " else "") + match.toUpperCase())
 
@@ -113,12 +119,12 @@ module.exports = (env) ->
       onChangedVar = ( (changedVar) =>
         evaluateExpr().then( (val) =>
           @emit "actual", val
-          @attributeValues["actual"] = val
+          @attributeValues.actual = val
           if @init == true # set all lastValues to the current input value
-            @attributeValues["lasthour"] = val unless @attributeValues["lasthour"] isnt 0
-            @attributeValues["lastday"] = val  unless @attributeValues["lastday"] isnt 0
-            @attributeValues["lastweek"] = val unless @attributeValues["lastweek"] isnt 0
-            @attributeValues["lastmonth"] = val unless @attributeValues["lastmonth"] isnt 0
+            @attributeValues.lasthour = val if @attributeValues.lasthour is 0
+            @attributeValues.lastday = val  if @attributeValues.lastday is 0
+            @attributeValues.lastweek = val if @attributeValues.lastweek is 0
+            @attributeValues.lastmonth = val if @attributeValues.lastmonth is 0
             @init = false
         )
       )
@@ -148,39 +154,78 @@ module.exports = (env) ->
               @updateJobs.push new CronJob
                 cronTime:  if @config.test then everyHourTest else everyHour
                 onTick: => 
-                  @attributeValues["hour"] = @attributeValues["actual"] - @attributeValues["lasthour"]
-                  @attributeValues["lasthour"] = @attributeValues["actual"]
-                  @emit "hour", @attributeValues["hour"]
-                  @emit "lasthour", @attributeValues["lasthour"]
+                  @attributeValues.hour = @attributeValues.actual - @attributeValues.lasthour
+                  @attributeValues.lasthour = @attributeValues.actual
+                  @emit "hour", @attributeValues.hour
+                  @emit "lasthour", @attributeValues.lasthour
+                  if @logging is "hour"
+                    @_log(@attributeValues.hour, @attributeValues.day, @attributeValues.week, @attributeValues.month, @unit)
             when "day"
               @updateJobs.push new CronJob
                 cronTime: if @config.test then everyDayTest else everyDay
                 onTick: => 
-                  @attributeValues["day"] = @attributeValues["actual"] - @attributeValues["lastday"]
-                  @attributeValues["lastday"] = @attributeValues["actual"]
-                  @emit "day", @attributeValues["day"]
-                  @emit "lastday", @attributeValues["lastday"]
+                  @attributeValues.day = @attributeValues.actual - @attributeValues.lastday
+                  @attributeValues.lastday = @attributeValues.actual
+                  @emit "day", @attributeValues.day
+                  @emit "lastday", @attributeValues.lastday
+                  if @logging is "day" 
+                    @_log(@attributeValues.hour, @attributeValues.day, @attributeValues.week, @attributeValues.month, @unit)
             when "week"
               @updateJobs.push new CronJob
                 cronTime: if @config.test then everyWeekTest else everyWeek 
                 onTick: => 
-                  @attributeValues["week"] = @attributeValues["actual"] - @attributeValues["lastweek"]
-                  @attributeValues["lastweek"] = @attributeValues["actual"]
-                  @emit "week", @attributeValues["week"]
-                  @emit "lastweek", @attributeValues["lastweek"]
+                  @attributeValues.week = @attributeValues.actual - @attributeValues.lastweek
+                  @attributeValues.lastweek = @attributeValues.actual
+                  @emit "week", @attributeValues.week
+                  @emit "lastweek", @attributeValues.lastweek
             when "month"
               @updateJobs.push new CronJob
                 cronTime: if @config.test then everyMonthTest else everyMonth
                 onTick: => 
-                  @attributeValues["month"] = @attributeValues["actual"] - @attributeValues["lastmonth"]
-                  @attributeValues["lastmonth"] = @attributeValues["actual"]
-                  @emit "month", @attributeValues["month"]
-                  @emit "lastmonth", @attributeValues["lastmonth"]
+                  @attributeValues.month = @attributeValues.actual - @attributeValues.lastmonth
+                  @attributeValues.lastmonth = @attributeValues.actual
+                  @emit "month", @attributeValues.month
+                  @emit "lastmonth", @attributeValues.lastmonth
       if @updateJobs?
         for jb in @updateJobs
           jb.start()
 
       super()
+
+    _log: (hour, day, week, month, unit) ->
+      d = new Date()
+      moment = Moment(d).subtract(1, 'days')
+      timestampDatetime = moment.format("YYYY-MM-DD HH:mm:ss")
+      if fs.existsSync(@statsLogFullFilename)
+        data = fs.readFileSync(@statsLogFullFilename, 'utf8')
+        statsData = JSON.parse(data)
+      else
+        statsData = []
+      
+      try
+        update =
+          id: @id
+          timestamp: timestampDatetime 
+          hour: Number hour.toFixed(1)
+          day: Number day.toFixed(1)
+          week: Number week.toFixed(1)
+          month: Number month.toFixed(1)
+          unit: unit
+        statsData.push update
+        #data is saved once a day
+        if @test then env.logger.info "'" + @id + "' data written to log"
+        fs.writeFileSync(@statsLogFullFilename, @_prettyCompactJSON(statsData))
+      catch e
+        env.logger.error e.message
+        env.logger.error "log not writen"
+        return
+
+    _prettyCompactJSON: (data) ->
+      for v, i in data
+        if i is 0 then str = "[\n\r"
+        str += " " + JSON.stringify(v)
+        if i isnt data.length-1 then str += ",\n\r" else str += "\n\r]"
+      return str
 
     destroy: ->
       @_vars.cancelNotifyOnChange(cl) for cl in @_exprChangeListeners
@@ -311,7 +356,8 @@ module.exports = (env) ->
       for _attrName in ["energyHour", "energyDay"]
         @attributes[_attrName].unit = if @config.energyUnit? then @config.energyUnit else ""
       @logging = if @config.log? then @config.log else "none"
-
+      @ddLogFullFilename = path.join(@dirPath, './' + @id + '-data.json')
+      
       @tempSampler = new Sampler()
       @tempInSampler = new Sampler()
       @windspeedSampler = new Sampler()
@@ -335,22 +381,23 @@ module.exports = (env) ->
           hidden: true
       #test
 
-      @attributeValues.temperatureHour = lastState?.temperatureHour?.value or 0.0
-      @attributeValues.temperatureDay = lastState?.temperatureDay?.value or 0.0
-      @attributeValues.temperatureInHour = lastState?.temperatureInHour?.value or 0.0
-      @attributeValues.temperatureInDay = lastState?.temperatureInDay?.value or 0.0
-      @attributeValues.windspeedHour = lastState?.windspeedHour?.value or 0.0
-      @attributeValues.windspeedDay = lastState?.windspeedDay?.value or 0.0
-      @attributeValues.energyHour = lastState?.energyHour?.value or 0.0
-      @attributeValues.energyDay = lastState?.energyDay?.value or 0.0
-      @attributeValues.lastEnergyHour = lastState?.lastEnergyHour?.value or 0.0
-      @attributeValues.lastEnergyDay = lastState?.lastEnergyDay?.value or 0.0
-      @attributeValues.degreedaysHour = lastState?.degreedaysHour?.value or 0.0
-      @attributeValues.degreedaysDay = lastState?.degreedaysDay?.value or 0.0
-      @attributeValues.efficiencyHour = lastState?.efficiencyHour?.value or 0.0
-      @attributeValues.efficiencyDay = lastState?.efficiencyDay?.value or 0.0
-      @attributeValues.statusLevel = lastState?.statusLevel?.value or 1
-      @attributeValues.status = lastState?.status?.value or ""
+      @framework.on 'after init' , =>
+        @attributeValues.temperatureHour = lastState?.temperatureHour?.value or 0.0
+        @attributeValues.temperatureDay = lastState?.temperatureDay?.value or 0.0
+        @attributeValues.temperatureInHour = lastState?.temperatureInHour?.value or 0.0
+        @attributeValues.temperatureInDay = lastState?.temperatureInDay?.value or 0.0
+        @attributeValues.windspeedHour = lastState?.windspeedHour?.value or 0.0
+        @attributeValues.windspeedDay = lastState?.windspeedDay?.value or 0.0
+        @attributeValues.energyHour = lastState?.energyHour?.value or 0.0
+        @attributeValues.energyDay = lastState?.energyDay?.value or 0.0
+        @attributeValues.lastEnergyHour = lastState?.lastEnergyHour?.value or 0.0
+        @attributeValues.lastEnergyDay = lastState?.lastEnergyDay?.value or 0.0
+        @attributeValues.degreedaysHour = lastState?.degreedaysHour?.value or 0.0
+        @attributeValues.degreedaysDay = lastState?.degreedaysDay?.value or 0.0
+        @attributeValues.efficiencyHour = lastState?.efficiencyHour?.value or 0.0
+        @attributeValues.efficiencyDay = lastState?.efficiencyDay?.value or 0.0
+        @attributeValues.statusLevel = lastState?.statusLevel?.value or 1
+        @attributeValues.status = lastState?.status?.value or ""
 
 
       for _attrName of @attributes
@@ -362,8 +409,6 @@ module.exports = (env) ->
       for key, _attrName of @vars
         @attributes[_attrName].hidden = false
 
-      @ddLogFullFilename = path.join(@dirPath, './' + @id + '-data.json')
-      
       @updateJobs2 = []
 
       unless @framework.variableManager.getVariableByName(@temperatureName)?
@@ -402,7 +447,7 @@ module.exports = (env) ->
           @attributeValues.efficiencyHour = if _dd > 0 then (@attributeValues.energyHour/_dd) else 0
           @attributeValues.degreedaysHour = _dd
           
-          if @logging == "hour"
+          if @logging is "hour"
             @framework.variableManager.waitForInit().then( =>
               for _attrName of @attributes
                 do (_attrName) =>
@@ -443,13 +488,14 @@ module.exports = (env) ->
             do (_attrName) =>
               @emit _attrName, @attributeValues[_attrName]
 
-          if @logging == "day" then @_log(
-            @attributeValues.temperatureDay, 
-            @attributeValues.temperatureInDay, 
-            @attributeValues.windspeedDay, 
-            @attributeValues.energyDay, 
-            @attributeValues.degreedaysDay,
-            @attributeValues.efficiencyDay
+          if @logging is "day"
+            @_log(
+              @attributeValues.temperatureDay, 
+              @attributeValues.temperatureInDay, 
+              @attributeValues.windspeedDay, 
+              @attributeValues.energyDay, 
+              @attributeValues.degreedaysDay,
+              @attributeValues.efficiencyDay
             )
 
       if @updateJobs2?
@@ -466,6 +512,22 @@ module.exports = (env) ->
       degreeday = factor * ( base - temp + (2/3) * wind)
       degreeday = 0 unless degreeday > 0
       return Number degreeday
+
+
+    resetSmartmeterDegreedays: () ->
+      for _attrName of @attributes
+      	do (_attrName) =>
+          @defaultVal = 0
+          switch _attrName
+            when "lastEnergyHour"
+              @defaultVal = @attributeValues.lastEnergyHour
+            when "lastEnergyDay"
+              @defaultVal = @attributeValues.lastEnergyDay
+            else
+            	@defaultVal = @attributes[_attrName].default
+            	@attributeValues[_attrName] = @defaultVal
+        	@emit _attrName, @defaultVal
+      Promise.resolve()
 
     _log: (tempOut, tempIn, wind, energy, ddays, eff) ->
       d = new Date()
@@ -489,34 +551,19 @@ module.exports = (env) ->
           eff: Number eff.toFixed(2)
         degreedaysData.push update
         #data is saved once a day
-        if @test then env.logger.info "write '" + timestampDatetime + "' data to log"
-        fs.writeFileSync(@ddLogFullFilename, @prettyCompactJSON(degreedaysData))
+        if @test then env.logger.info "'" + @id + "' data written to log"
+        fs.writeFileSync(@ddLogFullFilename, @_prettyCompactJSON(degreedaysData))
       catch e
         env.logger.error e.message
         env.logger.error "log not writen"
         return
 
-    prettyCompactJSON: (data) ->
+    _prettyCompactJSON: (data) ->
       for v, i in data
         if i is 0 then str = "[\n\r"
         str += " " + JSON.stringify(v)
         if i isnt data.length-1 then str += ",\n\r" else str += "\n\r]"
       return str
-
-    resetSmartmeterDegreedays: () ->
-      for _attrName of @attributes
-      	do (_attrName) =>
-          @defaultVal = 0
-          switch _attrName
-            when "lastEnergyHour"
-              @defaultVal = @attributeValues.lastEnergyHour
-            when "lastEnergyDay"
-              @defaultVal = @attributeValues.lastEnergyDay
-            else
-            	@defaultVal = @attributes[_attrName].default
-            	@attributeValues[_attrName] = @defaultVal
-        	@emit _attrName, @defaultVal
-      Promise.resolve()
 
     destroy: ->
       if @updateJobs2?

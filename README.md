@@ -13,13 +13,13 @@ The degreeday calculation used in the plugin is based on:
 - Temperature: the outdoor and indoor temperature
 - Windspeed: the windspeed in m/s
 
-The used formulae for degreedays is: 
+The used formulae for degreedays is:
      degreedays = BaseTemperature - ( Temperature - 2/3 x windspeed )
 
-Only when the result is above 0 the calculated degreeday value is used, otherwise its 0. 
+Only when the result is above 0 the calculated degreeday value is used, otherwise its 0.
 The degreedays are calculated per hour and added up to the daily value. So the day value is based on 24 hour values.
 
-The used formulae for efficiency is: 
+The used formulae for efficiency is:
     efficiency = energy consumption / degreedays
 
 Only when the degreedays are above 0 and energy was consumed, a efficiency factor is calculated, otherwise its 0
@@ -52,7 +52,7 @@ When the plugin is installed (including restart) a SmartmeterDegreedays device c
   "energyLabel": "" // A custom label for energy to use in the frontend
   "energyAcronym": "" // Acronym for energy to show as value label in the frontend
   "log": none | hour | day // Select to have a none, hourly or daily log of the Degreeday values
-  "test": boolean // Enable to speedup the daily proces to minutes (for testing) 
+  "test": boolean // Enable to speedup the daily proces to minutes (for testing)
 }
 ```
 
@@ -107,7 +107,8 @@ When the plugin is installed (including restart) a SmartmeterStats device can be
   "expression": "....." // The input variable or expression string
   "unit": "" // The unit for the values, examples kWh, m3, etc
   "statistics": ["hour", "day", "week", "month"] // The timescale and name of the resulting variable
-  "test": boolean 
+  "log": none | hour | day // Select to have a none, hourly or daily log of the Stats values
+  "test": boolean
 }
 ```
 
@@ -123,6 +124,9 @@ The available statistics variables are:
 
 On init of the plugin the first readout is based on the time left till the next full hour, day(00:00), week (monday) or month (1ste).
 
+For longterm usage of the values, a log can be enabled. The log will add at the start of every hour or day (selected in config) the values for that passed hour or day. To make the log standalone usable, a timestamp is added.
+
+The hourly/daily data is added as a JSON record. The logfile is made compact and readable with one daily data row per day. The logfile is available in a directory called 'smartmeter-data', located in the pimatic home directory of the computer running Pimatic (mostly ../pimatic-app). The log will have the name 'device-name'-data.json.
 
 
 The plugin is in development. Please backup Pimatic before you are using it!
