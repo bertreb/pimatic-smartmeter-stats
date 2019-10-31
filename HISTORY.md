@@ -13,3 +13,5 @@
     * added reset action for stats
 * 20191031, V0.0.8
     * cleanup coffee
+* 20191031, V0.0.9
+    * Updated package.json

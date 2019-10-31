@@ -7,14 +7,22 @@
     "url": "https://github.com/bertreb"
   },
   "main": "pimatic-smartmeter-stats",
+  "files": [
+    "pimatic-smartmeter-stats.coffee",
+    "pimatic-smartmeter-stats-config-schema.coffee",
+    "device-config-schema.coffee",
+    "README.md",
+    "LICENSE"
+  ],
   "homepage": "https://github.com/bertreb/pimatic-smartmeter-stats.git",
   "keywords": [
     "pimatic",
     "devices",
     "smartmeter",
-    "statistics"
+    "statistics",
+    "degreedays"
   ],
-  "version": "0.0.8",
+  "version": "0.0.9",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bertreb/pimatic-smartmeter-stats.git"
