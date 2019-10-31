@@ -19,24 +19,13 @@ To enable the smartmeter-stats plugin add this to the plugins section via the GU
 
 Degreedays
 ------------
-Degreeday is a measure for heating and cooling. The so called Heating degreedays are typical indicators of household energy consumption for space heating. This plugin works only for heating degreedays.
+Degreedays is a measure for heating and cooling usage. The so called Heating degreedays are typical indicators of household energy consumption for heating. This plugin works only for heating degreedays.
+
 The degreeday calculation used in the plugin is based on:
 - BaseTemprature: is the outdoor reference temperature for degreeday days, the default is 18°C, and can be changed.
 - Temperature: the outdoor and indoor temperature
 - Windspeed: the windspeed in m/s
-- Month of the year (factor depending on month)
-
-The used formulae for degreedays is:
-     degreedays = month-factor * (BaseTemperature - ( Temperature - 2/3 x windspeed ))
-
-Only when the result is above 0 the calculated degreeday value is used, otherwise its 0.
-The degreedays are calculated per hour and added up to the daily value. So the day value is based on 24 hour values.
-
-The used formulae for efficiency is:
-    efficiency = energy consumption / degreedays
-
-Only when the degreedays are above 0 and energy was consumed, a efficiency factor is calculated, otherwise its 0
-The efficiency is calculated per hour. The daily efficiency is the sum of hour values.
+- Month of the year (a factor between 0.8 and 1.1, depending on the month)
 
 To use the degreedays device you need to have the following data variables available in Pimatic:
 - Realtime outdoor temperature
@@ -44,7 +33,7 @@ To use the degreedays device you need to have the following data variables avail
 
 If available the following variables will increase the quality of the data:
 - Realtime windspeed
-- indoor temperature of the main heated mainroom (not yet used)
+- indoor temperature of the main heated room (not yet used)
 
 Realtime means that the value should be updated at least once an hour.
 
