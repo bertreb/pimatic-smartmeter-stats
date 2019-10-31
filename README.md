@@ -33,9 +33,9 @@ To use the degreedays device you need to have the following data variables avail
 
 If available the following variables will increase the quality of the data:
 - Realtime windspeed
-- indoor temperature of the main heated room (not yet used)
+- Realtime indoor temperature of the main heated room (not yet used)
 
-Realtime means that the value should be updated at least once an hour.
+Realtime means the value should be updated at least once an hour.
 
 
 Degreedays device
