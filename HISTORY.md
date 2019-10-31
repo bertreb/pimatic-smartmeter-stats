@@ -11,3 +11,5 @@
     * added reset action for degreedaysdevice
 * 20191031, V0.0.7
     * added reset action for stats
+* 20191031, V0.0.8
+    * cleanup coffee
