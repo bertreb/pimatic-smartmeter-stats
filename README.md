@@ -130,5 +130,8 @@ For longterm usage of the values, a log can be enabled. The log will add at the 
 
 The hourly/daily data is added as a JSON record. The logfile is made compact and readable with one daily data row per day. The logfile is available in a directory called 'smartmeter-data', located in the pimatic home directory of the computer running Pimatic (mostly ../pimatic-app). The log will have the name 'device-name'-data.json.
 
+You can reset the device and set the values to 0 with the command reset 'device name'. This command can be used in rules, so you can create a button to reset the values or reset on any other condition/event.
+
+---------
 
 The plugin is in development. Please backup Pimatic before you are using it!

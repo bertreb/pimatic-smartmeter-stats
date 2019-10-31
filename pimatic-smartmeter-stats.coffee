@@ -40,6 +40,7 @@ module.exports = (env) ->
         createCallback: (config, lastState) => new SmartmeterDegreedaysDevice(config, lastState, @framework, @dirPath)
       })
 
+      @framework.ruleManager.addActionProvider(new SmartmeterStatsActionProvider @framework, @config)
       @framework.ruleManager.addActionProvider(new SmartmeterDegreedaysActionProvider @framework, @config)
 
 
@@ -47,6 +48,9 @@ module.exports = (env) ->
 
   class SmartmeterStatsDevice extends env.devices.Device
        
+    actions:
+      resetSmartmeterStats:
+        description: "Resets the stats attribute values"
     constructor: (@config, lastState, @framework, @dirPath) ->
 
       @id = @config.id
@@ -227,6 +231,15 @@ module.exports = (env) ->
         if i isnt data.length-1 then str += ",\n\r" else str += "\n\r]"
       return str
 
+    resetSmartmeterStats: () ->
+      for _attrName of @attributes
+        do (_attrName) =>
+          @defaultVal = 0
+          @defaultVal = @attributes[_attrName].default
+          @attributeValues[_attrName] = @defaultVal
+          @emit _attrName, @defaultVal
+      Promise.resolve()
+
     destroy: ->
       @_vars.cancelNotifyOnChange(cl) for cl in @_exprChangeListeners
       if @updateJobs?
@@ -238,7 +251,7 @@ module.exports = (env) ->
 
     actions:
       resetSmartmeterDegreedays:
-        description: "Resets the stats attribute values"
+        description: "Resets the degreedays attribute values"
     attributes:
       status:
         description: "Status of the data processing"
@@ -569,6 +582,65 @@ module.exports = (env) ->
       if @updateJobs2?
         jb2.stop() for jb2 in @updateJobs2 
       super()
+
+  class SmartmeterStatsActionProvider extends env.actions.ActionProvider
+    constructor: (@framework) ->
+
+    parseAction: (input, context) =>
+
+      filterDevices = _(@framework.deviceManager.devices).values().filter(
+        (device) => (
+          device.hasAction("resetSmartmeterStats")
+        )
+      ).value()
+
+      device = null
+      action = null
+      match = null
+
+      m = M(input, context).match(['reset '], (m, a) =>
+        m.matchDevice(filterDevices, (m, d) ->
+          last = m.match(' smartmeterDegreedays', {optional: yes})
+          if last.hadMatch()
+            # Already had a match with another device?
+            if device? and device.id isnt d.id
+              context?.addError(""""#{input.trim()}" is ambiguous.""")
+              return
+            device = d
+            action = a.trim()
+            match = last.getFullMatch()
+        )
+      )
+
+      if match?
+        assert device?
+        assert action in ['reset']
+        assert typeof match is "string"
+        return {
+          token: match
+          nextInput: input.substring(match.length)
+          actionHandler: new SmartmeterStatsActionHandler(device)
+        }
+
+        return null
+
+  class SmartmeterStatsActionHandler extends env.actions.ActionHandler
+    constructor: (@device) ->
+
+    setup: ->
+      @dependOnDevice(@device)
+      super()
+
+    # ### executeAction()
+    executeAction: (simulate) =>
+      return (
+        if simulate
+          Promise.resolve __("would reset %s", @device.name)
+        else
+          @device.resetSmartmeterStats().then( => __("reset %s", @device.name) )
+      )
+    # ### hasRestoreAction()
+    hasRestoreAction: -> false
 
   class SmartmeterDegreedaysActionProvider extends env.actions.ActionProvider
     constructor: (@framework) ->

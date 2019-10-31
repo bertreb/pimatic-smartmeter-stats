@@ -9,3 +9,5 @@
     * added logging for stats device
 * 20191031, V0.0.6
     * added reset action for degreedaysdevice
+* 20191031, V0.0.7
+    * added reset action for stats
