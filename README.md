@@ -22,10 +22,10 @@ Degreedays
 Degreedays is a measure for heating and cooling usage. The so called Heating degreedays are typical indicators of household energy consumption for heating. This plugin works only for heating degreedays.
 
 The degreeday calculation used in the plugin is based on:
-- BaseTemprature: is the outdoor reference temperature for degreeday days, the default is 18°C, and can be changed.
+- BaseTemprature: is the outdoor reference temperature for degreeday days, the default is 18°C and can be changed.
 - Temperature: the outdoor and indoor temperature
 - Windspeed: the windspeed in m/s
-- Month of the year (a factor between 0.8 and 1.1, depending on the month)
+- Month of the year (a factor depending on the month)
 
 To use the degreedays device you need to have the following data variables available in Pimatic:
 - Realtime outdoor temperature
