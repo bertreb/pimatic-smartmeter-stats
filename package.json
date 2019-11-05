@@ -22,7 +22,7 @@
     "statistics",
     "degreedays"
   ],
-  "version": "0.0.9",
+  "version": "0.0.10,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bertreb/pimatic-smartmeter-stats.git"
@@ -33,7 +33,8 @@
   },
   "dependencies": {
     "cron": "^1.7.2",
-    "moment-timezone": "0.5.*"
+    "moment-timezone": "0.5.*",
+    "regression": "^2.0.1"
   },
   "engines": {
     "node": ">=4",

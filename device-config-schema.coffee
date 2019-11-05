@@ -25,10 +25,9 @@ module.exports = {
         items:
           enum: ["actual", "hour", "day", "week", "month"]
       log:
-        description: "Select to get none, hourly or daily data (in JSON format) in a logfile"
-        type: "string"
-        default: "none"
-        enum: ["none", "hour", "day"]
+        description: "enable to get daily data (in JSON format) in a logfile"
+        type: "boolean"
+        default: false
       test:
         type: "boolean"
         description: "enable to get faster timing for testing (Hour=10 sec, Day=1 minute, Week=3 minutes, Month=10 minutes)"
@@ -85,19 +84,16 @@ module.exports = {
         format: "table"
         items:
           enum: [
-            "status", 
-            "temperatureHour", "temperatureInHour", "windspeedHour", "energyHour", "degreedaysHour", "efficiencyHour",
-            "temperatureDay", "temperatureInDay", "windspeedDay", "energyDay", "degreedaysDay", "efficiencyDay"
+            "status",
+            "temperature", "temperatureIn", "windspeed", "energy", "degreedays", "efficiency", "r2", "baseTemp"
           ]
       log:
-        description: "Select to get none, hourly or daily data (in JSON format) in a logfile"
-        type: "string"
-        default: "none"
-        enum: ["none", "hour", "day"]
+        description: "Select to get none or daily data (in JSON format) in a logfile. Logfile is used to get an adaptive baseTemperature."
+        type: "boolean"
+        default: true
       test:
         type: "boolean"
         description: "Enable to get faster timing for testing (Hour=10 sec, Day=30 seconds, Week=2 minutes, Month=5 minutes)"
         default: false
   }
 }
-  

@@ -8,7 +8,6 @@ module.exports = (env) ->
   path = require 'path'
   _ = env.require('lodash')
 
-
   CronJob = env.CronJob or require('cron').CronJob
 
   # cron definitions
@@ -18,7 +17,7 @@ module.exports = (env) ->
   everyMonth = "0 3 0 1 * *" # first day of the month at 00:03
 
   # cron test definitions
-  everyHourTest = "0,30 * * * * *" # every 30 seconds
+  everyHourTest = "0,15,30,45 * * * * *" # every 15 seconds
   everyDayTest = "2 */2 * * * *" # every 2 minutes + 2 seconds
   everyWeekTest = "20 */3 * * * *" # every 3 minutes and 5 seconds
   everyMonthTest = "30 */5 * * * *" #every 5 minutes and 10 seconds
@@ -80,7 +79,7 @@ module.exports = (env) ->
             default: 0.0
           @attributeValues[_attr] = 0.0
           @_createGetter(_attr, =>
-              return Promise.resolve @attributeValues[_attr]
+            return Promise.resolve @attributeValues[_attr]
           )
 
       @updateJobs = []
@@ -209,9 +208,8 @@ module.exports = (env) ->
           month: Number month.toFixed(1)
           unit: unit
         statsData.push update
-        #data is saved once a day
-        if @test then env.logger.info "'" + @id + "' data written to log"
-        fs.writeFileSync(@statsLogFullFilename, @_prettyCompactJSON(statsData))
+        if @test then env.logger.info "'" + @id + "' data is written to log"
+        fs.writeFileSync(@statsLogFullFilename, @_prettyCompactJSON(statsData),'utf8')
       catch e
         env.logger.error e.message
         env.logger.error "log not writen"
@@ -219,9 +217,9 @@ module.exports = (env) ->
 
     _prettyCompactJSON: (data) ->
       for v, i in data
-        if i is 0 then str = "[\n\r"
+        if i is 0 then str = "[\n"
         str += " " + JSON.stringify(v)
-        if i isnt data.length-1 then str += ",\n\r" else str += "\n\r]"
+        if i isnt data.length-1 then str += ",\n" else str += "\n]"
       return str
 
     resetSmartmeterStats: () ->
@@ -258,100 +256,77 @@ module.exports = (env) ->
         acronym: 'statusLevel'
         default: 1
         hidden: true
-      temperatureHour:
-        description: "Last hour average outdoor temperature"
-        type: types.number
-        unit: '°C'
-        acronym: 'ToH'
-        default: 0.0
-        displayFormat: "fixed, decimals:1"
-      temperatureInHour:
-        description: "Last hour average indoor temperature"
-        type: types.number
-        unit: '°C'
-        acronym: 'TiH'
-        default: null
-        displayFormat: "fixed, decimals:1"
-        hidden: true
-      windspeedHour:
-        description: "Last hour average windspeed"
-        type: types.number
-        unit: 'm/s'
-        acronym: 'Wi-H'
-        default: 0.0
-        displayFormat: "fixed, decimals:1"
-        hidden: true
-      energyHour:
-        description: "Last hour energy usage"
-        type: types.number
-        unit: ''
-        default: 0.0
-        acronym: 'E-H'
-        displayFormat: "fixed, decimals:1"
-      degreedaysHour:
-        description: "Last hour degreedays"
-        type: types.number
-        unit: ''
-        default: 0.0
-        acronym: '°dayH'
-        displayFormat: "fixed, decimals:1"
-      efficiencyHour:
-        description: "Last hour efficiency ratio (e-index)"
-        type: types.number
-        unit: 'E/°day'
-        default: 0.0
-        acronym: 'e-indexH'
-        displayFormat: "fixed, decimals:1"
-      temperatureDay:
+      temperature:
         description: "Yesterdays average outdoor temperature"
         type: types.number
         unit: '°C'
-        acronym: 'ToD'
+        acronym: 'temp'
         default: 0.0
         displayFormat: "fixed, decimals:1"
-      temperatureInDay:
+      temperatureIn:
         description: "Yesterdays average indoor temperature"
         type: types.number
         unit: '°C'
-        acronym: 'TiD'
+        acronym: 'tempIn'
         default: null
         displayFormat: "fixed, decimals:1"
         hidden: true
-      windspeedDay:
+      windspeed:
         description: "Yesterdays average windspeed"
         type: types.number
         unit: 'm/s'
-        acronym: 'W-D'
+        acronym: 'wind'
         default: 0.0
         displayFormat: "fixed, decimals:1"
         hidden: true
-      energyDay:
+      energy:
         description: "Yesterdays energy usage"
         type: types.number
         unit: ''
         default: 0.0
-        acronym: 'E-D'
+        acronym: 'energy'
         displayFormat: "fixed, decimals:1"
-      degreedaysDay:
+      degreedays:
         description: "Yesterdays degreedays"
         type: types.number
         unit: ''
         default: 0.0
-        acronym: '°dayD'
+        acronym: '°day'
         displayFormat: "fixed, decimals:1"
-      efficiencyDay:
+      efficiency:
         description: "Yesterdays efficiency ratio (e-index)"
         type: types.number
-        unit: 'E/°day'
+        unit: 'e/°day'
         default: 0.0
-        acronym: 'e-indexD'
+        acronym: 'e-index'
         displayFormat: "fixed, decimals:1"
+      r2:
+        description: "Regression R2"
+        type: types.number
+        unit: '%'
+        default: 0
+        acronym: 'r2'
+        displayFormat: "fixed, decimals:0"
+      baseTemp:
+        description: "BaseTemperature Used / Calculated"
+        type: types.string
+        unit: '°C'
+        default: ""
+        acronym: 'baseTemp used/calc'
+
 
     constructor: (@config, lastState, @framework, @dirPath) ->
       @id = @config.id
       @name = @config.name
       @test = @config.test
       @vars = if @config.stats? then @config.stats else null#.properties
+      _varsAlreadySelected = []
+      for _var in @vars
+        do (_var) =>
+          if _var in _varsAlreadySelected
+            throw new Error("variable '#{_var}' already selected")
+          _varsAlreadySelected.push _var
+
       @temperatureName = if @config.temperature[0] == "$" then @config.temperature.substr(1) else @config.temperature
       @temperatureInName = if @config.temperatureIn? then @config.temperatureIn else ""
       @energyName = if @config.energy[0] == "$" then @config.energy.substr(1) else @config.energy
@@ -359,46 +334,81 @@ module.exports = (env) ->
       @windspeedName =  if @config.windspeed? then @config.windspeed else ""
       if @temperatureInName[0]== "$" then @temperatureInName = @temperatureInName.substr(1)
       if @windspeedName[0]== "$" then @windspeedName = @windspeedName.substr(1)
-      for _attrName in ["energyHour", "energyDay"]
-        @attributes[_attrName].unit = if @config.energyUnit? then @config.energyUnit else ""
+      @attributes["energy"].unit = if @config.energyUnit? then @config.energyUnit else ""
 
-      @logging = if @config.log? then @config.log else "none"
+      @logging = if @config.log? then @config.log else true
       @ddLogFullFilename = path.join(@dirPath, './' + @id + '-data.json')
+      @ddVarsFullFilename = path.join(@dirPath, './' + @id + '-vars.json')
 
       @tempSampler = new Sampler()
       @tempInSampler = new Sampler()
       @windspeedSampler = new Sampler()
       @degreedaysSampler = new Sampler()
 
+      @_degreedays = new Degreedays()
+
       @states = ["off", "init", "processing 1st day", "yesterday"]
 
       @attributeValues = {}
 
+      @btt = new baseTemperatureTracker(@baseTemperature)
+
       for _attr of @attributes
         do (_attr) =>
-          env.logger.info _attr
           @attributeValues[_attr] = null
           @_createGetter(_attr, =>
-              return Promise.resolve @attributeValues[_attr]
+            return Promise.resolve @attributeValues[_attr]
           )
+          @attributes[_attr].hidden = true
+          if (_attr in @vars) then @attributes[_attr].hidden = false
 
-      @attributeValues.temperatureHour = lastState?.temperatureHour?.value or 0.0
-      @attributeValues.temperatureDay = lastState?.temperatureDay?.value or 0.0
-      @attributeValues.temperatureInHour = lastState?.temperatureInHour?.value or 0.0
-      @attributeValues.temperatureInDay = lastState?.temperatureInDay?.value or 0.0
-      @attributeValues.windspeedHour = lastState?.windspeedHour?.value or 0.0
-      @attributeValues.windspeedDay = lastState?.windspeedDay?.value or 0.0
-      @attributeValues.energyHour = lastState?.energyHour?.value or 0.0
-      @attributeValues.energyDay = lastState?.energyDay?.value or 0.0
-      @attributeValues.lastEnergyHour = lastState?.lastEnergyHour?.value or 0.0
-      @attributeValues.lastEnergyDay = lastState?.lastEnergyDay?.value or 0.0
-      @attributeValues.degreedaysHour = lastState?.degreedaysHour?.value or 0.0
-      @attributeValues.degreedaysDay = lastState?.degreedaysDay?.value or 0.0
-      @attributeValues.efficiencyHour = lastState?.efficiencyHour?.value or 0.0
-      @attributeValues.efficiencyDay = lastState?.efficiencyDay?.value or 0.0
+      @attributeValues.temperature = lastState?.temperature?.value or 0.0
+      @attributeValues.temperatureIn = lastState?.temperatureIn?.value or 0.0
+      @attributeValues.windspeed = lastState?.windspeed?.value or 0.0
+      @attributeValues.energy = lastState?.energy?.value or 0.0
+      @attributeValues.energyTotalLastDay = lastState?.energyTotalLastDay?.value or 0.0
+      @attributeValues.degreedays = lastState?.degreedays?.value or 0.0
+      @attributeValues.efficiency = lastState?.efficiency?.value or 0.0
+      @attributeValues.r2 = lastState?.r2?.value or 0
+      @attributeValues.baseTemp = lastState?.baseTemp?.value or ""
       @attributeValues.statusLevel = lastState?.statusLevel?.value or 1
       @attributeValues.status = lastState?.status?.value or ""
 
+      #check on number of sample days for regression
+      if fs.existsSync(@ddLogFullFilename)
+        env.logger.info "checking '" + @id + "' log data ..."
+        data = fs.readFileSync(@ddLogFullFilename, 'utf8')
+        _logData = JSON.parse(data)
+        _reg = @btt.getRegression(_logData)
+        env.logger.info "'" + @id + "' log data loaded, " + _logData.length + " days of data"
+        if _reg.status is on
+          @attributeValues.r2 = _reg.r2
+          @attributeValues.baseTemp =  @baseTemperature + "°C/" + (@btt.findBaseTemperature()).toFixed(1) + "°C"
+        else
+          @attributeValues.r2 = _reg.r2
+          @attributeValues.baseTemp = @baseTemperature + "°C/calculating " + _reg.waitdays + " more day" + (if _reg.waitdays > 1 then "s")
+      else
+        @attributeValues.r2 = 0
+        @attributeValues.baseTemp = @baseTemperature + "°C/calculating " + @btt.getDaysForRegression() + " more days"
+
+      #load temp variables
+      if fs.existsSync(@ddVarsFullFilename)
+        data = fs.readFileSync(@ddVarsFullFilename, 'utf8')
+        env.logger.info "loading '" + @id + "' variables data ..."
+        tempData = JSON.parse(data)
+        @_tempLastHour = tempData.tempLastHour
+        @_tempInLastHour = tempData.tempInLastHour
+        @_windspeedLastHour = tempData.windspeedLastHour
+        @attributeValues.energyTotalLastDay = tempData.energyTotalLastDay
+        @tempSampler.setData(tempData.tempSampler)
+        @tempInSampler.setData(tempData.tempInSampler)
+        @windspeedSampler.setData(tempData.windspeedSampler)
+        @degreedaysSampler.setData(tempData.degreedaysSampler)
+        @init = false
+      else        
+        @init = true
+
+ 
       @updateJobs2 = []
 
       unless @framework.variableManager.getVariableByName(@temperatureName)?
@@ -410,6 +420,11 @@ module.exports = (env) ->
       unless @framework.variableManager.getVariableByName(@energyName)?
         throw new Error("'" + @energyName + "' does not excist")
 
+      @framework.on 'destroy', =>
+        env.logger.info "shutting down ... saving variables of '" + @id + "'"
+        @_saveVars()
+        env.logger.info "variables '" + @id + "' saved"
+
       @updateJobs2.push new CronJob
         cronTime: if @test then everyHourTest else everyHour
         onTick: =>
@@ -418,39 +433,27 @@ module.exports = (env) ->
           _tempIn = if @temperatureInName isnt "" then Number @framework.variableManager.getVariableByName(@temperatureInName).value else _tempIn = null
           _windspeed = if @windspeedName isnt "" then Number @framework.variableManager.getVariableByName(@windspeedName).value else _windspeed = null
           _energy = Number @framework.variableManager.getVariableByName(@energyName).value
+          if @attributeValues.energyTotalLastDay is null then @attributeValues.energyTotalLastDay = _energy
+          if @init
+            @_tempLastHour = _temp
+            @_tempInLastHour = if @temperatureInName isnt "" then _tempIn else _tempIn = null
+            @_windspeedLastHour = if @windspeedName isnt "" then _windspeed else _windspeed = 0.0
+            @init = false
 
-          if @attributeValues.lastEnergyHour == null then @attributeValues.lastEnergyHour = _energy
-          if @attributeValues.lastEnergyDay == null then @attributeValues.lastEnergyDay = _energy
-
-          @attributeValues.temperatureHour = _temp  # average value
-          @attributeValues.temperatureInHour = _tempIn   # average value
-          @attributeValues.windspeedHour = _windspeed  # average value
-          @attributeValues.energyHour = _energy - @attributeValues.lastEnergyHour   # 1 hour energy comsumption
-          @attributeValues.lastEnergyHour = _energy
+          _temperatureHour = (_temp + @_tempLastHour) / 2 # average value
+          _temperatureInHour = (_tempIn + @_tempInLastHour) / 2  # average value
+          _windspeedHour = (_windspeed + @_windspeedLastHour ) / 2  # average value
+          
+          @_tempLastHour = _temp
+          @_tempInLastHour = _tempIn
+          @_windspeedLastHour = _windspeed
 
           #add hour values to samlers for day calculation
-          @tempSampler.addSample @attributeValues.temperatureHour
-          @tempInSampler.addSample @attributeValues.temperatureInHour
-          @windspeedSampler.addSample @attributeValues.windspeedHour
-          _dd = @_calcDegreeday(@baseTemperature, _temp, _windspeed) # calc degreedays Hour for current temperature and wind
+          @tempSampler.addSample _temperatureHour
+          @tempInSampler.addSample _temperatureInHour
+          @windspeedSampler.addSample _windspeedHour
+          _dd = @_degreedays.calculate(@baseTemperature, _temperatureHour, _windspeedHour) # calc degreedays Hour for current temperature and wind
           @degreedaysSampler.addSample _dd
-          @attributeValues.efficiencyHour = if _dd > 0 then (@attributeValues.energyHour/_dd) else 0
-          @attributeValues.degreedaysHour = _dd
-
-          if @logging is "hour"
-            @framework.variableManager.waitForInit().then( =>
-              for _attrName of @attributes
-                do (_attrName) =>
-                  @emit _attrName, @attributeValues[_attrName]
-            )
-            @_log(
-              @attributeValues.temperatureHour,
-              @attributeValues.temperatureInHour,
-              @attributeValues.windspeedHour,
-              @attributeValues.energyHour,
-              @attributeValues.degreedaysHour,
-              @attributeValues.efficiencyHour
-            )
 
       @updateJobs2.push new CronJob
         cronTime: if @test then everyDayTest else everyDay
@@ -458,35 +461,48 @@ module.exports = (env) ->
           if @test then env.logger.info "DayTest update"
           @attributeValues.statusLevel +=1 unless @attributeValues.statusLevel >= 3
           if @attributeValues.statusLevel == 3
-            moment = Moment(new Date())
-            timestampDatetime = moment.format("YYYY-MM-DD HH:mm")
-            @states[3] = timestampDatetime
+            #moment = Moment(new Date()).subtract(1, 'days') # yesterdays info
+            #timestampDatetime = moment.format("YYYY-MM-DD")
+            @states[3] = "yesterday" #timestampDatetime
           @attributeValues.status = @states[@attributeValues.statusLevel]
 
           # calculate full day values
           _energy = Number @framework.variableManager.getVariableByName(@energyName).value # the actual energy value
-          @attributeValues.temperatureDay = @tempSampler.getAverage true
-          @attributeValues.temperatureInDay = @tempInSampler.getAverage true
-          @attributeValues.windspeedDay = @windspeedSampler.getAverage true
-          @attributeValues.energyDay = _energy - @attributeValues.lastEnergyDay
-          @attributeValues.degreedaysDay = @degreedaysSampler.getAverage true
-          @attributeValues.efficiencyDay = if @attributeValues.degreedaysDay > 0 then (@attributeValues.energyDay / @attributeValues.degreedaysDay) else 0
+          @attributeValues.temperature = @tempSampler.getAverage true
+          @attributeValues.temperatureIn = @tempInSampler.getAverage true
+          @attributeValues.windspeed = @windspeedSampler.getAverage true
+          @attributeValues.energy = _energy - @attributeValues.energyTotalLastDay
+          @attributeValues.degreedays = @degreedaysSampler.getAverage true
+          @attributeValues.efficiency = if @attributeValues.degreedays > 0 then (@attributeValues.energy / @attributeValues.degreedays) else 0
 
-          @attributeValues.lastEnergyDay = _energy # for usage per day
+          @attributeValues.energyTotalLastDay = _energy # for usage per day
+          @attributeValues["baseTemp"] = @baseTemperature + "°C/"
+          @attributeValues["r2"] = null
+          
+          if @logging
+            @_logData = @_log(
+              @attributeValues.temperature,
+              @attributeValues.temperatureIn,
+              @attributeValues.windspeed,
+              @attributeValues.energy,
+              _energy,
+              @attributeValues.degreedays,
+              @attributeValues.efficiency
+            )
+            @_reg = @btt.getRegression(@_logData)
+            if @_reg.status
+              @attributeValues["r2"] = @_reg.r2
+              @attributeValues["baseTemp"] += (@btt.findBaseTemperature()).toFixed(1) + "°C"
+            else
+              @attributeValues["r2"] = @_reg.r2
+              @attributeValues["baseTemp"] += "calculating " + @_reg.waitdays + " more day" + (if @_reg.waitdays > 1 then "s")
+
+              # @baseTemperature wordt nu nog niet aangepast
+              #@btt.reset()
 
           for _attrName of @attributes
             do (_attrName) =>
               @emit _attrName, @attributeValues[_attrName]
-
-          if @logging is "day"
-            @_log(
-              @attributeValues.temperatureDay,
-              @attributeValues.temperatureInDay,
-              @attributeValues.windspeedDay,
-              @attributeValues.energyDay,
-              @attributeValues.degreedaysDay,
-              @attributeValues.efficiencyDay
-            )
 
       if @updateJobs2?
         for jb2 in @updateJobs2
@@ -494,34 +510,18 @@ module.exports = (env) ->
 
       super()
 
-    _calcDegreeday: (base, temp, wind) ->
-      currentMonth = (new Date).getMonth() # 0=january
-      factor = 1.0 # April and October
-      factor = 0.8 if currentMonth >= 4 && currentMonth <= 8 # May till September
-      factor = 1.1 if currentMonth <=1 || currentMonth >= 10 # November till March
-      degreeday = factor * ( base - temp + (2/3) * wind)
-      degreeday = 0 unless degreeday > 0
-      return Number degreeday
-
     resetSmartmeterDegreedays: () ->
       for _attrName of @attributes
-      	do (_attrName) =>
-          @defaultVal = 0
-          switch _attrName
-            when "lastEnergyHour"
-              @defaultVal = @attributeValues.lastEnergyHour
-            when "lastEnergyDay"
-              @defaultVal = @attributeValues.lastEnergyDay
-            else
-            	@defaultVal = @attributes[_attrName].default
-            	@attributeValues[_attrName] = @defaultVal
-        	@emit _attrName, @defaultVal
+        do (_attrName) =>
+          _defaultVal = @attributes[_attrName].default
+          @attributeValues[_attrName] = _defaultVal
+          @emit _attrName, _defaultVal
       Promise.resolve()
 
-    _log: (tempOut, tempIn, wind, energy, ddays, eff) ->
+    _log: (tempOut, tempIn, wind, energy, energyTotal, ddays, eff) ->
       d = new Date()
       moment = Moment(d).subtract(1, 'days')
-      timestampDatetime = moment.format("YYYY-MM-DD HH:mm:ss")
+      timestampDatetime = moment.format("YYYY-MM-DD")
       if fs.existsSync(@ddLogFullFilename)
         data = fs.readFileSync(@ddLogFullFilename, 'utf8')
         degreedaysData = JSON.parse(data)
@@ -531,32 +531,51 @@ module.exports = (env) ->
       try
         update =
           id: @id
-          timestamp: timestampDatetime
-          temp_out: Number tempOut.toFixed(1)
-          temp_in: if tempIn? then Number tempIn.toFixed(1) else null
-          energy: Number energy.toFixed(2)
-          windspeed: if wind? then  Number wind.toFixed(2) else null
-          ddays: Number ddays.toFixed(2)
-          eff: Number eff.toFixed(2)
+          date: timestampDatetime
+          temperature: Number tempOut.toFixed(1)
+          temperatureIn: if tempIn? then Number tempIn.toFixed(1) else null
+          energy: Number energy.toFixed(3)
+          energyTotal: Number energyTotal.toFixed(3)
+          wind: if wind? then  Number wind.toFixed(2) else null
+          degreedays: Number ddays.toFixed(2)
+          effiency: Number eff.toFixed(2)
         degreedaysData.push update
-        #data is saved once a day
-        if @test then env.logger.info "'" + @id + "' data written to log"
-        fs.writeFileSync(@ddLogFullFilename, @_prettyCompactJSON(degreedaysData))
+        if @test then env.logger.info "'" + @id + "' data is written to log"
+        fs.writeFileSync(@ddLogFullFilename, @_prettyCompactJSON(degreedaysData),'utf8')
       catch e
         env.logger.error e.message
         env.logger.error "log not writen"
         return
 
+      return degreedaysData
+
     _prettyCompactJSON: (data) ->
       for v, i in data
-        if i is 0 then str = "[\n\r"
+        if i is 0 then str = "[\n"
         str += " " + JSON.stringify(v)
-        if i isnt data.length-1 then str += ",\n\r" else str += "\n\r]"
+        if i isnt data.length-1 then str += ",\n" else str += "\n]"
       return str
+
+    _saveVars: () =>
+      data = {
+        tempLastHour: @_tempLastHour
+        tempInLastHour: @_tempInLastHour
+        windspeedLastHour: @_windspeedLastHour
+        energyTotalLastDay: @attributeValues.energyTotalLastDay
+        tempSampler: @tempSampler.getData()
+        tempInSampler: @tempInSampler.getData()
+        windspeedSampler: @windspeedSampler.getData()
+        degreedaysSampler: @degreedaysSampler.getData()
+      }
+      fs.writeFileSync(@ddVarsFullFilename, JSON.stringify(data,null,2), 'utf8')
+
 
     destroy: ->
       if @updateJobs2?
         jb2.stop() for jb2 in @updateJobs2
+      #save all temp variables
+      @_saveVars()
+      env.logger.info "variables of '" + @id + "' saved"
       super()
 
   class SmartmeterStatsActionProvider extends env.actions.ActionProvider
@@ -678,6 +697,18 @@ module.exports = (env) ->
     hasRestoreAction: -> false
 
 
+  class Degreedays
+    constructor: () ->
+
+    calculate: (base, temp, wind) ->
+      currentMonth = (new Date).getMonth() # 0=january
+      factor = 1.0 # April and October
+      factor = 0.8 if currentMonth >= 4 && currentMonth <= 8 # May till September
+      factor = 1.1 if currentMonth <=1 || currentMonth >= 10 # November till March
+      degreedays = factor * ( base - temp + (2/3) * wind)
+      degreedays = 0 unless degreedays > 0
+      return Number degreedays
+
   class Sampler
     constructor: () ->
       @samples = []
@@ -694,5 +725,104 @@ module.exports = (env) ->
         if reset
           @samples = []
       return result
+
+    getData: () ->
+      return @samples
+
+    setData: (_samples) ->
+      @samples = _samples
+
+  class baseTemperatureTracker
+    constructor: (baseTemp) ->
+      @samples = []
+      @baseTemperature = baseTemp
+      @_degreedays = new Degreedays()
+      @daysForRegression  = 10
+      
+    setBaseTemperature: (baseTemp) ->
+      @baseTemperature = baseTemp
+      #recalculate degreedays in sample array with new basetemp
+      for _sample, i in @samples
+        @samples[i].degreedays = @_degreedays.calculate(@baseTemperature, _sample.temperature, _sample.windspeed)
+
+    getDaysForRegression: ->
+      return @daysForRegression
+
+    getRegression: (@_samples) ->
+
+      #_samples =[{temperatureDay, temperatureInDay, windspeedDay, energyDay, degreedaysDay, efficiencyDay}]
+      lr = {}
+      lr.slope = 0
+      lr.intercept = 0
+      lr.r2 = 0
+      lr.status = off
+      lr.waitdays = @daysForRegression
+
+      if not @_samples?
+        return lr
+      if @_samples.length < @daysForRegression # test on minimum number of datasets for regression
+        lr.waitdays = @daysForRegression - @_samples.length
+        lr.status = off
+        return lr
+
+      @samples = @_samples
+      x = []
+      y = []
+      for _s in @samples
+        do (_s) =>
+          if _s.energy isnt 0 and _s.degreedays isnt 0
+            x.push Number _s.energy
+            y.push Number _s.degreedays
+      n = y.length
+
+      sum_x = 0.0
+      sum_y = 0.0
+      sum_xy = 0.0
+      sum_xx = 0.0
+      sum_yy = 0.0
+
+      for i in [0..n-1]
+        sum_x += Number x[i]
+        sum_y += Number y[i]
+        sum_xy += Number x[i] * Number y[i]
+        sum_xx += Number x[i] * Number x[i]
+        sum_yy += Number y[i] * Number y[i]
+
+      lr.slope = (n * sum_xy - sum_x * sum_y) / (n*sum_xx - sum_x * sum_x)
+      lr.intercept =  (sum_y - lr.slope * sum_x)/n
+      lr.r2 = Math.pow((n*sum_xy - sum_x*sum_y)/Math.sqrt((n*sum_xx-sum_x*sum_x)*(n*sum_yy-sum_y*sum_y)),2)
+      if Number.isNaN(lr.r2)
+        env.logger.debug lr
+        lr.slope = 0
+        lr.intercept = 0
+        lr.r2 = 0
+        lr.status = off
+        return lr
+
+      lr.waitdays = 0
+      lr.status = on
+      return lr
+
+    findBaseTemperature: () ->
+      
+      #search for optimal baseTemp in range 12 - 24 degrees celcius to get maximum R2
+      startTemperature = 24.0
+
+      # start at maximum temperature, step=6 and direction down
+      tempValue = startTemperature
+      step = 6
+      direction = -1
+      R2 = 0
+      lastR2 = 0
+
+      #itterate towards optimal baseTemperature
+      while step > 0.01
+        tempValue = tempValue + direction * step
+        @setBaseTemperature(tempValue)
+        R2 = @getRegression(@samples).r2
+        direction = -1 * direction if R2 <= lastR2
+        step /= 2
+        lastR2 = R2
+      return tempValue
 
   return plugin
