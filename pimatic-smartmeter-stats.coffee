@@ -60,7 +60,7 @@ module.exports = (env) ->
       @unit = if @config.unit? then @config.unit else ""
       @_vars = @framework.variableManager
       @_exprChangeListeners = []
-      @logging = if @config.log? then @config.log else "none"
+      @logging = if @config.log? then @config.log else false
       @statsLogFullFilename = path.join(@dirPath, './' + @id + '-data.json')
       @test = @config.test
 
@@ -155,8 +155,6 @@ module.exports = (env) ->
                   @attributeValues.lasthour = @attributeValues.actual
                   @emit "hour", @attributeValues.hour
                   @emit "lasthour", @attributeValues.lasthour
-                  if @logging is "hour"
-                    @_log(@attributeValues.hour, @attributeValues.day, @attributeValues.week, @attributeValues.month, @unit)
             when "day"
               @updateJobs.push new CronJob
                 cronTime: if @config.test then everyDayTest else everyDay
@@ -165,7 +163,7 @@ module.exports = (env) ->
                   @attributeValues.lastday = @attributeValues.actual
                   @emit "day", @attributeValues.day
                   @emit "lastday", @attributeValues.lastday
-                  if @logging is "day"
+                  if @logging
                     @_log(@attributeValues.hour, @attributeValues.day, @attributeValues.week, @attributeValues.month, @unit)
             when "week"
               @updateJobs.push new CronJob
@@ -405,10 +403,10 @@ module.exports = (env) ->
         @windspeedSampler.setData(tempData.windspeedSampler)
         @degreedaysSampler.setData(tempData.degreedaysSampler)
         @init = false
-      else        
+      else
         @init = true
 
- 
+
       @updateJobs2 = []
 
       unless @framework.variableManager.getVariableByName(@temperatureName)?
@@ -443,7 +441,7 @@ module.exports = (env) ->
           _temperatureHour = (_temp + @_tempLastHour) / 2 # average value
           _temperatureInHour = (_tempIn + @_tempInLastHour) / 2  # average value
           _windspeedHour = (_windspeed + @_windspeedLastHour ) / 2  # average value
-          
+
           @_tempLastHour = _temp
           @_tempInLastHour = _tempIn
           @_windspeedLastHour = _windspeed
@@ -478,7 +476,7 @@ module.exports = (env) ->
           @attributeValues.energyTotalLastDay = _energy # for usage per day
           @attributeValues["baseTemp"] = @baseTemperature + "°C/"
           @attributeValues["r2"] = null
-          
+
           if @logging
             @_logData = @_log(
               @attributeValues.temperature,
@@ -738,7 +736,7 @@ module.exports = (env) ->
       @baseTemperature = baseTemp
       @_degreedays = new Degreedays()
       @daysForRegression  = 10
-      
+
     setBaseTemperature: (baseTemp) ->
       @baseTemperature = baseTemp
       #recalculate degreedays in sample array with new basetemp
@@ -804,7 +802,7 @@ module.exports = (env) ->
       return lr
 
     findBaseTemperature: () ->
-      
+
       #search for optimal baseTemp in range 12 - 24 degrees celcius to get maximum R2
       startTemperature = 24.0
 
