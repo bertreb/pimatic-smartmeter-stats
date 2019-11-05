@@ -113,7 +113,7 @@ The available statistics variables are:
 
 On init of the plugin the first readout is based on the time left till the next full hour, day(00:00), week (monday) or month (1ste).
 
-For longterm usage of the values, a log can be enabled. The log will add at the start of every day (selected in config) the values for that passed day. To make the log standalone usable, a timestamp is added.
+For longterm usage of the values, a log can be enabled. The log will add at the start of a new day (selected in config) the values for that previous day. To make the log standalone usable, a timestamp is added. The timestamp is de date of the previous day.
 
 The daily data is added as a JSON record. The logfile is made compact and readable with one daily data row per day. TThe logfile is available in a directory called 'smartmeter-data', located in the pimatic home directory of the computer running Pimatic (mostly ../pimatic-app). The log will have the name 'device-name'-data.json.
 
