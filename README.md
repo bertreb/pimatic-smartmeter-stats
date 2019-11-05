@@ -64,23 +64,23 @@ Configuration
 The statistics are calculated on a daily bases starting at midnight. The statistics variables are available per hour or per day.
 
 Daily (update at start of day):
-1. status (init, processing 1st day or yesterday)
-2. temperatureDay - yesterdays average outdoor temperature
-3. temperatureInDay - yesterdays average outdoor temperature (optional)
-4. energyDay - yesterdays energy consumption
-5. windspeedDay - yesterdays average windspeed (optional)
-6. degreedaysDay - yesterdays degreeday values (00:00-23:59)
-7. efficiencyDay - yesterdays efficiency factor: (energy consumption) / degreeday
-8. R2 - linear regression fit-factor for the current baseTemperature
-9. basteTemperature / calculated baseTemperature - starting from minimum 10 days data a optimal baseTemperature is calculated
+- status (init, processing 1st day or yesterday)
+- temperatureDay - yesterdays average outdoor temperature
+- temperatureInDay - yesterdays average outdoor temperature (optional)
+- energyDay - yesterdays energy consumption
+- windspeedDay - yesterdays average windspeed (optional)
+- degreedaysDay - yesterdays degreeday values (00:00-23:59)
+- efficiencyDay - yesterdays efficiency factor: (energy consumption) / degreeday
+- R2 - linear regression fit-factor for the current baseTemperature
+- baseTemperature / calculated baseTemperature - starting from minimum 10 days data a optimal baseTemperature is calculated
 
-The plugin needs max 2 days to get aligned for all variables except the calculated baseTemperature. That value needs a minimum of 10 days data. On init of the plugin during the first day the status is 'init'. During the first full day the status is 'processing 1st day'. And starting the 2nd day the status is the date of yesterday and the values are from yesterday and accurate.
+The plugin needs max 2 days to get aligned for all variables except R2 and the calculated baseTemperature. These values needs a minimum of 10 days data. On init of the plugin during the first day the status is 'init'. During the first full day the status is 'processing 1st day'. And starting the 2nd day the status is the date of yesterday and the values are from yesterday and accurate.
 
 For longterm usage of the values, a log is used. The log will add at the start of every day the values for that passed day. To make the log standalone usable, a timestamp is added.
 
 The daily data is added as a JSON record. The logfile is made compact and readable with one daily data row per day. The logfile is available in a directory called 'smartmeter-data', located in the pimatic home directory of the computer running Pimatic (mostly ../pimatic-app). The log will have the name 'device-name'-data.json.
 
-The baseTmperature is default set at 18°C. To improve the quality of the baseTemperature a regression function is added. After a minimum of 10 days data in the log, when every day the optimum for the BaseTemperature is calculated based on regression calculation on the dataset of the daily degreedays and energy consumption. The linear regression algorith searches for the baseTemperature with the best "Goodness-of-Fit". That value is show in the gui (config baseTemp/calculated baseTemp ). After a while you can choose to change the baseTemperature value in the config to the optimal calculated value.
+The baseTemperature is default set at 18°C. To improve the quality of the baseTemperature a regression function is added. After a minimum of 10 days data in the log, when every day the optimum for the BaseTemperature is calculated based on regression calculation on the dataset of the daily degreedays and energy consumption. The linear regression algorithm searches for the baseTemperature with the best "Goodness-of-Fit". That value is show in the gui (config baseTemp/calculated baseTemp ). After a while you can choose to change the baseTemperature value in the config to the optimal calculated value.
 
 You can reset the device and set the values to 0 with the command "reset 'device name'". This command can be used in rules, so you can create a button to reset the values or reset on any other condition/event.
 
