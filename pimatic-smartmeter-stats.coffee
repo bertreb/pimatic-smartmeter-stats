@@ -459,9 +459,9 @@ module.exports = (env) ->
           if @test then env.logger.info "DayTest update"
           @attributeValues.statusLevel +=1 unless @attributeValues.statusLevel >= 3
           if @attributeValues.statusLevel == 3
-            #moment = Moment(new Date()).subtract(1, 'days') # yesterdays info
-            #timestampDatetime = moment.format("YYYY-MM-DD")
-            @states[3] = "yesterday" #timestampDatetime
+            moment = Moment(new Date()).subtract(1, 'days') # yesterdays info
+            timestampDatetime = moment.format("YYYY-MM-DD")
+            @states[3] = timestampDatetime
           @attributeValues.status = @states[@attributeValues.statusLevel]
 
           # calculate full day values
