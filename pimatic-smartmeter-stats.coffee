@@ -6,7 +6,7 @@ module.exports = (env) ->
   M = env.matcher
   Moment = require 'moment-timezone'
   path = require 'path'
-  #_ = env.require('lodash')
+  _ = env.require('lodash')
 
   CronJob = env.CronJob or require('cron').CronJob
 
