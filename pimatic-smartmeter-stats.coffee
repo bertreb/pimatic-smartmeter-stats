@@ -6,7 +6,7 @@ module.exports = (env) ->
   M = env.matcher
   Moment = require 'moment-timezone'
   path = require 'path'
-  _ = env.require('lodash')
+  #_ = env.require('lodash')
 
   CronJob = env.CronJob or require('cron').CronJob
 
@@ -364,7 +364,6 @@ module.exports = (env) ->
       @attributeValues.temperatureIn = lastState?.temperatureIn?.value or 0.0
       @attributeValues.windspeed = lastState?.windspeed?.value or 0.0
       @attributeValues.energy = lastState?.energy?.value or 0.0
-      @attributeValues.energyTotalLastDay = lastState?.energyTotalLastDay?.value or 0.0
       @attributeValues.degreedays = lastState?.degreedays?.value or 0.0
       @attributeValues.efficiency = lastState?.efficiency?.value or 0.0
       @attributeValues.r2 = lastState?.r2?.value or 0
