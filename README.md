@@ -80,7 +80,7 @@ For longterm usage of the values, a log is used. The log will add at the start o
 
 The daily data is added as a JSON record. The logfile is made compact and readable with one daily data row per day. The logfile is available in a directory called 'smartmeter-data', located in the pimatic home directory of the computer running Pimatic (mostly ../pimatic-app). The log will have the name 'device-name'-data.json.
 
-The baseTemperature is default set at 18°C. To improve the quality of the baseTemperature a regression function is added. After a minimum of 10 days data in the log, when every day the optimum for the BaseTemperature is calculated based on regression calculation on the dataset of the daily degreedays and energy consumption. The linear regression algorithm searches for the baseTemperature with the best "Goodness-of-Fit". That value is show in the gui (config baseTemp/calculated baseTemp ). After a while you can choose to change the baseTemperature value in the config to the optimal calculated value.
+The baseTemperature is default set at 18°C. To improve the quality of the baseTemperature a regression function is added. After a minimum of 10 days data in the log, when every day the optimum for the BaseTemperature is calculated based on regression calculation on the dataset of the daily degreedays and energy consumption. The linear regression algorithm searches for the baseTemperature with the best "Goodness-of-Fit". That value is show in the Gui (config baseTemp/calculated baseTemp ). After a while you can choose to change the baseTemperature value in the config to the calculated optimal value.
 
 You can reset the device and set the values to 0 with the command "reset 'device name'". This command can be used in rules, so you can create a button to reset the values or reset on any other condition/event.
 
@@ -115,7 +115,7 @@ On init of the plugin the first readout is based on the time left till the next 
 
 For longterm usage of the values, a log can be enabled. The log will add at the start of a new day (selected in config) the values for that previous day. To make the log standalone usable, a timestamp is added. The timestamp is de date of the previous day.
 
-The daily data is added as a JSON record. The logfile is made compact and readable with one daily data row per day. TThe logfile is available in a directory called 'smartmeter-data', located in the pimatic home directory of the computer running Pimatic (mostly ../pimatic-app). The log will have the name 'device-name'-data.json.
+The daily data is added as a JSON record. The logfile is made compact and readable with one daily data row per day. The logfile is available in a directory called 'smartmeter-data', located in the pimatic home directory of the computer running Pimatic (mostly ../pimatic-app). The log will have the name 'device-name'-data.json.
 
 You can reset the device and set the values to 0 with the command reset 'device name'. This command can be used in rules, so you can create a button to reset the values or reset on any other condition/event.
 
