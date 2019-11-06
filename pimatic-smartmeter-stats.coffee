@@ -164,7 +164,7 @@ module.exports = (env) ->
                   @emit "day", @attributeValues.day
                   @emit "lastday", @attributeValues.lastday
                   if @logging
-                    @_log(@attributeValues.hour, @attributeValues.day, @attributeValues.week, @attributeValues.month, @unit)
+                    @_saveLog(@attributeValues.hour, @attributeValues.day, @attributeValues.week, @attributeValues.month, @unit)
             when "week"
               @updateJobs.push new CronJob
                 cronTime: if @config.test then everyWeekTest else everyWeek
@@ -187,10 +187,10 @@ module.exports = (env) ->
 
       super()
 
-    _log: (hour, day, week, month, unit) ->
+    _saveLog: (hour, day, week, month, unit) ->
       d = new Date()
       moment = Moment(d).subtract(1, 'days')
-      timestampDatetime = moment.format("YYYY-MM-DD HH:mm:ss")
+      timestampDatetime = moment.format("YYYY-MM-DD")
       if fs.existsSync(@statsLogFullFilename)
         data = fs.readFileSync(@statsLogFullFilename, 'utf8')
         statsData = JSON.parse(data)
@@ -206,11 +206,11 @@ module.exports = (env) ->
           month: Number month.toFixed(1)
           unit: unit
         statsData.push update
-        if @test then env.logger.info "'" + @id + "' data is written to log"
+        if @test then env.logger.info "'" + @id + "' data is saved"
         fs.writeFileSync(@statsLogFullFilename, @_prettyCompactJSON(statsData),'utf8')
       catch e
         env.logger.error e.message
-        env.logger.error "log not writen"
+        env.logger.error "Data not writen"
         return
 
     _prettyCompactJSON: (data) ->
@@ -335,8 +335,10 @@ module.exports = (env) ->
       @attributes["energy"].unit = if @config.energyUnit? then @config.energyUnit else ""
 
       @logging = if @config.log? then @config.log else true
-      @ddLogFullFilename = path.join(@dirPath, './' + @id + '-data.json')
+      @ddDataFullFilename = path.join(@dirPath, './' + @id + '-data.json')
+      @ddBackupDataFullFilename = path.join(@dirPath, './backup-' + @id + '-data.json')
       @ddVarsFullFilename = path.join(@dirPath, './' + @id + '-vars.json')
+      @ddBackupVarsFullFilename = path.join(@dirPath, './backup-' + @id + '-vars.json')
 
       @tempSampler = new Sampler()
       @tempInSampler = new Sampler()
@@ -372,12 +374,12 @@ module.exports = (env) ->
       @attributeValues.status = lastState?.status?.value or ""
 
       #check on number of sample days for regression
-      if fs.existsSync(@ddLogFullFilename)
-        env.logger.info "checking '" + @id + "' log data ..."
-        data = fs.readFileSync(@ddLogFullFilename, 'utf8')
+      if fs.existsSync(@ddDataFullFilename)
+        env.logger.info "Checking '" + @id + "' saved data ..."
+        data = fs.readFileSync(@ddDataFullFilename, 'utf8')
         _logData = JSON.parse(data)
         _reg = @btt.getRegression(_logData)
-        env.logger.info "'" + @id + "' log data loaded, " + _logData.length + " days of data"
+        env.logger.info "'" + @id + "' Saved data loaded, " + _logData.length + " days of data"
         if _reg.status is on
           @attributeValues.r2 = _reg.r2
           @attributeValues.baseTemp =  @baseTemperature + "°C/" + (@btt.findBaseTemperature()).toFixed(1) + "°C"
@@ -418,9 +420,9 @@ module.exports = (env) ->
         throw new Error("'" + @energyName + "' does not excist")
 
       @framework.on 'destroy', =>
-        env.logger.info "shutting down ... saving variables of '" + @id + "'"
-        @_saveVars()
-        env.logger.info "variables '" + @id + "' saved"
+        env.logger.info "Shutting down ... saving variables of '" + @id + "'"
+        @_saveVars(@ddVarsFullFilename)
+        env.logger.info "Variables '" + @id + "' saved"
 
       @updateJobs2.push new CronJob
         cronTime: if @test then everyHourTest else everyHour
@@ -477,15 +479,7 @@ module.exports = (env) ->
           @attributeValues["r2"] = null
 
           if @logging
-            @_logData = @_log(
-              @attributeValues.temperature,
-              @attributeValues.temperatureIn,
-              @attributeValues.windspeed,
-              @attributeValues.energy,
-              _energy,
-              @attributeValues.degreedays,
-              @attributeValues.efficiency
-            )
+            @_logData = @_saveData(@ddDataFullFilename)
             @_reg = @btt.getRegression(@_logData)
             if @_reg.status
               @attributeValues["r2"] = @_reg.r2
@@ -494,8 +488,8 @@ module.exports = (env) ->
               @attributeValues["r2"] = @_reg.r2
               @attributeValues["baseTemp"] += "calculating " + @_reg.waitdays + " more day" + (if @_reg.waitdays > 1 then "s")
 
-              # @baseTemperature wordt nu nog niet aangepast
-              #@btt.reset()
+              # @baseTemperature not automaticaly adjusted
+              # @btt.reset()
 
           for _attrName of @attributes
             do (_attrName) =>
@@ -508,43 +502,21 @@ module.exports = (env) ->
       super()
 
     resetSmartmeterDegreedays: () ->
+      # rename current log and vars files
+      @_saveVars(@ddVarsFullFilename)
+      fs.rename(@ddDataFullFilename,@ddBackupDataFullFilename, (err) =>
+        if err then env.logger.error "Log file backup failed, " + err.message
+        )
+      fs.rename(@ddVarsFullFilename, @ddBackupVarsFullFilename, (err) =>
+        if err then env.logger.error "Vars file backup failed, " + err.message
+        )
+
       for _attrName of @attributes
         do (_attrName) =>
           _defaultVal = @attributes[_attrName].default
           @attributeValues[_attrName] = _defaultVal
           @emit _attrName, _defaultVal
       Promise.resolve()
-
-    _log: (tempOut, tempIn, wind, energy, energyTotal, ddays, eff) ->
-      d = new Date()
-      moment = Moment(d).subtract(1, 'days')
-      timestampDatetime = moment.format("YYYY-MM-DD")
-      if fs.existsSync(@ddLogFullFilename)
-        data = fs.readFileSync(@ddLogFullFilename, 'utf8')
-        degreedaysData = JSON.parse(data)
-      else
-        degreedaysData = []
-
-      try
-        update =
-          id: @id
-          date: timestampDatetime
-          temperature: Number tempOut.toFixed(1)
-          temperatureIn: if tempIn? then Number tempIn.toFixed(1) else null
-          energy: Number energy.toFixed(3)
-          energyTotal: Number energyTotal.toFixed(3)
-          wind: if wind? then  Number wind.toFixed(2) else null
-          degreedays: Number ddays.toFixed(2)
-          effiency: Number eff.toFixed(2)
-        degreedaysData.push update
-        if @test then env.logger.info "'" + @id + "' data is written to log"
-        fs.writeFileSync(@ddLogFullFilename, @_prettyCompactJSON(degreedaysData),'utf8')
-      catch e
-        env.logger.error e.message
-        env.logger.error "log not writen"
-        return
-
-      return degreedaysData
 
     _prettyCompactJSON: (data) ->
       for v, i in data
@@ -553,7 +525,35 @@ module.exports = (env) ->
         if i isnt data.length-1 then str += ",\n" else str += "\n]"
       return str
 
-    _saveVars: () =>
+    _saveData: (_dataFullFilename) =>
+      d = new Date()
+      moment = Moment(d).subtract(1, 'days')
+      timestampDatetime = moment.format("YYYY-MM-DD")
+      if fs.existsSync(_dataFullFilename)
+        data = fs.readFileSync(_dataFullFilename, 'utf8')
+        degreedaysData = JSON.parse(data)
+      else
+        degreedaysData = []
+      
+      update =
+        id: @id
+        date: timestampDatetime
+        temperature: Number @attributeValues.temperature.toFixed(1)
+        temperatureIn: if @attributeValues.temperatureIn? then Number @attributeValues.temperatureIn.toFixed(1) else null
+        wind: if @attributeValues.windspeed? then Number @attributeValues.windspeed.toFixed(2) else null
+        energy: Number @attributeValues.energy.toFixed(3)
+        energyTotal: Number @attributeValues.energyTotalLastDay.toFixed(3)
+        degreedays: Number @attributeValues.degreedays.toFixed(2)
+        effiency: Number @attributeValues.efficiency.toFixed(2)
+      degreedaysData.push update
+      if @test then env.logger.info "'" + @id + "' data is written to log"
+      fs.writeFileSync(_dataFullFilename, @_prettyCompactJSON(degreedaysData),'utf8')
+      env.logger.info "Log of '" + @id + "' saved"
+
+      return degreedaysData
+
+
+    _saveVars: (_varsFullFilename) =>
       data = {
         tempLastHour: @_tempLastHour
         tempInLastHour: @_tempInLastHour
@@ -564,15 +564,15 @@ module.exports = (env) ->
         windspeedSampler: @windspeedSampler.getData()
         degreedaysSampler: @degreedaysSampler.getData()
       }
-      fs.writeFileSync(@ddVarsFullFilename, JSON.stringify(data,null,2), 'utf8')
+      fs.writeFileSync(_varsFullFilename, JSON.stringify(data,null,2), 'utf8')
+      env.logger.info "Variables of '" + @id + "' saved"
 
 
     destroy: ->
       if @updateJobs2?
         jb2.stop() for jb2 in @updateJobs2
       #save all temp variables
-      @_saveVars()
-      env.logger.info "variables of '" + @id + "' saved"
+      @_saveVars(@ddVarsFullFilename)
       super()
 
   class SmartmeterStatsActionProvider extends env.actions.ActionProvider
