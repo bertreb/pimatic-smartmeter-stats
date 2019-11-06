@@ -16,7 +16,9 @@
 * 20191031, V0.0.9
     * Updated package.json
 * 20191105, V0.0.10
+    * First publish
+* 20191106, V0.0.11
     * readme update
     * software improvements
-* 20191106, V0.0.11
-    * Before reset backup of data
+* 20191106, V0.0.12
+    * Backup of data Before reset
