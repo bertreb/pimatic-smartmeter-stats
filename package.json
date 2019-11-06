@@ -22,7 +22,7 @@
     "statistics",
     "degreedays"
   ],
-  "version": "0.0.10,
+  "version": "0.0.10",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bertreb/pimatic-smartmeter-stats.git"
