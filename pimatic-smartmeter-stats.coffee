@@ -385,7 +385,7 @@ module.exports = (env) ->
           @attributeValues.baseTemp =  @baseTemperature + "°C/" + (@btt.findBaseTemperature()).toFixed(1) + "°C"
         else
           @attributeValues.r2 = _reg.r2
-          @attributeValues.baseTemp = @baseTemperature + "°C/calculating " + _reg.waitdays + " more day" + (if _reg.waitdays > 1 then "s")
+          @attributeValues.baseTemp = @baseTemperature + "°C/calculating " + _reg.waitdays + " more day" + (if _reg.waitdays > 1 then "s" else "")
       else
         @attributeValues.r2 = 0
         @attributeValues.baseTemp = @baseTemperature + "°C/calculating " + @btt.getDaysForRegression() + " more days"
