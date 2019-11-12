@@ -22,5 +22,5 @@
   * software improvements
 * 20191106, V0.0.12
   * Backup of data before reset
-* 20191112, V0.0.13
+* 20191112, V0.0.13/14
   * Bugfix

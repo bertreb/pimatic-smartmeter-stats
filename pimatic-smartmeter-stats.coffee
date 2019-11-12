@@ -486,8 +486,7 @@ module.exports = (env) ->
               @attributeValues["baseTemp"] += (@btt.findBaseTemperature()).toFixed(1) + "°C"
             else
               @attributeValues["r2"] = @_reg.r2
-              @attributeValues["baseTemp"] += "calculating " + @_reg.waitdays + " more day" + (if @_reg.waitdays > 1 then "s")
-
+              @attributeValues["baseTemp"] += "calculating " + @_reg.waitdays + " more day" + (if _reg.waitdays > 1 then "s" else "")
               # @baseTemperature not automaticaly adjusted
               # @btt.reset()
 
