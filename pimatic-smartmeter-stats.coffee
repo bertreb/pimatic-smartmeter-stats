@@ -381,10 +381,10 @@ module.exports = (env) ->
         _reg = @btt.getRegression(_logData)
         env.logger.info "'" + @id + "' Saved data loaded, " + _logData.length + " days of data"
         if _reg.status is on
-          @attributeValues.r2 = _reg.r2
+          @attributeValues.r2 = 100 * _reg.r2
           @attributeValues.baseTemp =  @baseTemperature + "°C/" + (@btt.findBaseTemperature()).toFixed(1) + "°C"
         else
-          @attributeValues.r2 = _reg.r2
+          @attributeValues.r2 = 100 * _reg.r2
           @attributeValues.baseTemp = @baseTemperature + "°C/calculating " + _reg.waitdays + " more day" + (if _reg.waitdays > 1 then "s" else "")
       else
         @attributeValues.r2 = 0
@@ -533,7 +533,7 @@ module.exports = (env) ->
         degreedaysData = JSON.parse(data)
       else
         degreedaysData = []
-      
+
       update =
         id: @id
         date: timestampDatetime
