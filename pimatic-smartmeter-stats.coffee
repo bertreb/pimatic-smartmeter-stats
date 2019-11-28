@@ -486,7 +486,7 @@ module.exports = (env) ->
               @attributeValues["baseTemp"] += (@btt.findBaseTemperature()).toFixed(1) + "°C"
             else
               @attributeValues["r2"] = @_reg.r2
-              @attributeValues["baseTemp"] += "calculating " + @_reg.waitdays + " more day" + (if _reg.waitdays > 1 then "s" else "")
+              @attributeValues["baseTemp"] += "calculating " + @_reg.waitdays + " more day" + (if @_reg.waitdays > 1 then "s" else "")
               # @baseTemperature not automaticaly adjusted
               # @btt.reset()
 
@@ -695,15 +695,16 @@ module.exports = (env) ->
 
   class Degreedays
     constructor: () ->
+      @degreedays = 0
 
     calculate: (base, temp, wind) ->
       currentMonth = (new Date).getMonth() # 0=january
       factor = 1.0 # April and October
       factor = 0.8 if currentMonth >= 4 && currentMonth <= 8 # May till September
       factor = 1.1 if currentMonth <=1 || currentMonth >= 10 # November till March
-      degreedays = factor * ( base - temp + (2/3) * wind)
-      degreedays = 0 unless degreedays > 0
-      return Number degreedays
+      @degreedays = factor * ( base - temp + (2/3) * wind)
+      @degreedays = 0 unless @degreedays > 0
+      return @degreedays
 
   class Sampler
     constructor: () ->
@@ -733,13 +734,13 @@ module.exports = (env) ->
       @samples = []
       @baseTemperature = baseTemp
       @_degreedays = new Degreedays()
-      @daysForRegression  = 10
+      @daysForRegression = 10
 
     setBaseTemperature: (baseTemp) ->
       @baseTemperature = baseTemp
       #recalculate degreedays in sample array with new basetemp
       for _sample, i in @samples
-        @samples[i].degreedays = @_degreedays.calculate(@baseTemperature, _sample.temperature, _sample.windspeed)
+        @samples[i].degreedays = @_degreedays.calculate(@baseTemperature, _sample.temperature, _sample.wind)
 
     getDaysForRegression: ->
       return @daysForRegression
@@ -806,7 +807,7 @@ module.exports = (env) ->
 
       # start at maximum temperature, step=6 and direction down
       tempValue = startTemperature
-      step = 6
+      step = 12
       direction = -1
       R2 = 0
       lastR2 = 0

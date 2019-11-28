@@ -24,5 +24,7 @@
   * Backup of data before reset
 * 20191112, V0.0.13/14
   * Bugfix
-* 20191114, V0.0.15
-  * R2 value edit
+  * 20191114, V0.0.15
+    * R2 value edit
+* 20191129, V0.0.16
+  * Bugfix calculated baseTemp
