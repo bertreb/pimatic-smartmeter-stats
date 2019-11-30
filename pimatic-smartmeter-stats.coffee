@@ -306,11 +306,17 @@ module.exports = (env) ->
         acronym: 'r2'
         displayFormat: "fixed, decimals:0"
       baseTemp:
-        description: "BaseTemperature Used / Calculated"
-        type: types.string
+        description: "Used BaseTemperature"
+        type: types.number
         unit: '°C'
         default: ""
-        acronym: 'baseTemp used/calc'
+        acronym: 'baseTemp'
+      calcTemp:
+        description: "Calculated BaseTemperature"
+        type: types.number
+        unit: '°C'
+        default: ""
+        acronym: 'calcTemp'
 
 
     constructor: (@config, lastState, @framework, @dirPath) ->
@@ -329,6 +335,7 @@ module.exports = (env) ->
       @temperatureInName = if @config.temperatureIn? then @config.temperatureIn else ""
       @energyName = if @config.energy[0] == "$" then @config.energy.substr(1) else @config.energy
       @baseTemperature = if @config.baseTemperature? then @config.baseTemperature else 18.0
+      @calcTemperature = if @config.calcTemperature? then @config.calcTemperature else @baseTemperature
       @windspeedName =  if @config.windspeed? then @config.windspeed else ""
       if @temperatureInName[0]== "$" then @temperatureInName = @temperatureInName.substr(1)
       if @windspeedName[0]== "$" then @windspeedName = @windspeedName.substr(1)
@@ -369,7 +376,8 @@ module.exports = (env) ->
       @attributeValues.degreedays = lastState?.degreedays?.value or 0.0
       @attributeValues.efficiency = lastState?.efficiency?.value or 0.0
       @attributeValues.r2 = lastState?.r2?.value or 0
-      @attributeValues.baseTemp = lastState?.baseTemp?.value or ""
+      @attributeValues.baseTemp = lastState?.baseTemp?.value or 0.0
+      @attributeValues.calcTemp = lastState?.calcTemp?.value or 0.0
       @attributeValues.statusLevel = lastState?.statusLevel?.value or 1
       @attributeValues.status = lastState?.status?.value or ""
 
@@ -382,13 +390,19 @@ module.exports = (env) ->
         env.logger.info "'" + @id + "' Saved data loaded, " + _logData.length + " days of data"
         if _reg.status is on
           @attributeValues.r2 = 100 * _reg.r2
-          @attributeValues.baseTemp =  @baseTemperature + "°C/" + (@btt.findBaseTemperature()).toFixed(1) + "°C"
+          @attributeValues.baseTemp =  @baseTemperature
+          @attributes.calcTemp.hidden = false
+          @attributeValues.calcTemp =  @btt.findBaseTemperature()
         else
           @attributeValues.r2 = 100 * _reg.r2
-          @attributeValues.baseTemp = @baseTemperature + "°C/calculating " + _reg.waitdays + " more day" + (if _reg.waitdays > 1 then "s" else "")
+          @attributeValues.baseTemp = @baseTemperature
+          @attributes.calcTemp.hidden = true
+          @attributeValues.calcTemp = @baseTemperature
       else
         @attributeValues.r2 = 0
-        @attributeValues.baseTemp = @baseTemperature + "°C/calculating " + @btt.getDaysForRegression() + " more days"
+        @attributeValues.baseTemp = @baseTemperature
+        @attributes.calcTemp.hidden = true
+        @attributeValues.calcTemp = @baseTemperature
 
       #load temp variables
       if fs.existsSync(@ddVarsFullFilename)
@@ -475,18 +489,24 @@ module.exports = (env) ->
           @attributeValues.efficiency = if @attributeValues.degreedays > 0 then (@attributeValues.energy / @attributeValues.degreedays) else 0
 
           @attributeValues.energyTotalLastDay = _energy # for usage per day
-          @attributeValues["baseTemp"] = @baseTemperature + "°C/"
-          @attributeValues["r2"] = null
+          @attributeValues.baseTemp = @baseTemperature
+          @attributeValues.calcTemp = @calcTemperature
+          @attributeValues.r2 = null
 
           if @logging
-            @_logData = @_saveData(@ddDataFullFilename)
-            @_reg = @btt.getRegression(@_logData)
-            if @_reg.status
-              @attributeValues["r2"] = @_reg.r2
-              @attributeValues["baseTemp"] += (@btt.findBaseTemperature()).toFixed(1) + "°C"
+            _logData = @_saveData(@ddDataFullFilename)
+            _reg = @btt.getRegression(_logData)
+            if _reg.status
+              @attributes.calcTemp.hidden = false
+              @attributeValues.r2 = _reg.r2
+              @attributeValues.baseTemp = @baseTemperature
+              @attributeValues.calcTemp = @btt.findBaseTemperature()
+
             else
-              @attributeValues["r2"] = @_reg.r2
-              @attributeValues["baseTemp"] += "calculating " + @_reg.waitdays + " more day" + (if @_reg.waitdays > 1 then "s" else "")
+              @attributes.calcTemp.hidden = true
+              @attributeValues.r2 = _reg.r2
+              @attributeValues.baseTemp = @baseTemperature
+              @attributeValues.calcTemp = @baseTemperature
               # @baseTemperature not automaticaly adjusted
               # @btt.reset()
 

@@ -85,7 +85,7 @@ module.exports = {
         items:
           enum: [
             "status",
-            "temperature", "temperatureIn", "windspeed", "energy", "degreedays", "efficiency", "r2", "baseTemp"
+            "temperature", "temperatureIn", "windspeed", "energy", "degreedays", "efficiency", "r2", "baseTemp", "calcTemp"
           ]
       log:
         description: "Select to get none or daily data (in JSON format) in a logfile. Logfile is used to get an adaptive baseTemperature."

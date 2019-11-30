@@ -28,3 +28,5 @@
   * R2 value edit
 * 20191129, V0.0.16
   * Bugfix calculated baseTemp
+* 20191130, v0.1.0
+  * release for testing

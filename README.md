@@ -72,9 +72,10 @@ Daily (update at start of day):
 - degreedaysDay - yesterdays degreeday values (00:00-23:59)
 - efficiencyDay - yesterdays efficiency factor: (energy consumption) / degreeday
 - r2 - linear regression fit-factor for the current baseTemperature
-- baseTemperature / calculated baseTemperature - starting from minimum 10 days data a optimal baseTemperature is calculated
+- baseTemperature - baseTemperature from config
+- calcTemperature - starting from minimum 10 days data a optimal baseTemperature is calculated and will become visible in the GUI
 
-The plugin needs max 2 days to get aligned for all variables except r2 and the calculated baseTemperature. These values needs a minimum of 10 days data. On init of the plugin during the first day the status is 'init'. During the first full day the status is 'processing 1st day'. And starting the 2nd day the status is the date of yesterday and the values are from yesterday and accurate.
+The plugin needs max 2 days to get aligned for all variables except r2 and the calcTemperature. These values needs a minimum of 10 days data. On init of the plugin during the first day the status is 'init'. During the first full day the status is 'processing 1st day'. And starting the 2nd day the status is the date of yesterday and the values are from yesterday and accurate.
 
 For longterm usage of the values, a log is used. The log will add at the start of every day the values for that passed day. To make the log standalone usable, a timestamp is added.
 
