@@ -32,3 +32,5 @@
   * release for testing
 * 20191130, v0.1.0
   * added baseTemp input variable
+* 20191201, v0.1.2
+  fixes
