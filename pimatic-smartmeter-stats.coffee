@@ -354,11 +354,13 @@ module.exports = (env) ->
 
       @_degreedays = new Degreedays()
 
+      @logData = @_readLog(@ddDataFullFilename)
+
       @states = ["off", "init", "processing 1st day", "yesterday"]
 
       @attributeValues = {}
 
-      @btt = new baseTemperatureTracker(@baseTemperature)
+      @btt = new baseTemperatureTracker(@baseTemperature, @_logData)
 
       for _attr of @attributes
         do (_attr) =>
@@ -382,12 +384,10 @@ module.exports = (env) ->
       @attributeValues.status = lastState?.status?.value or ""
 
       #check on number of sample days for regression
-      if fs.existsSync(@ddDataFullFilename)
+      if @logData.length>0
         env.logger.info "Checking '" + @id + "' saved data ..."
-        data = fs.readFileSync(@ddDataFullFilename, 'utf8')
-        _logData = JSON.parse(data)
-        _reg = @btt.getRegression(_logData)
-        env.logger.info "'" + @id + "' Saved data loaded, " + _logData.length + " days of data"
+        _reg = @btt.getRegression()
+        env.logger.info "'" + @id + "' Saved data loaded, " + @logData.length + " days of data"
         if _reg.status is on
           @attributeValues.r2 = 100 * _reg.r2
           @attributeValues.baseTemp =  @baseTemperature
@@ -422,8 +422,6 @@ module.exports = (env) ->
         @init = true
 
 
-      @updateJobs2 = []
-
       unless @framework.variableManager.getVariableByName(@temperatureName)?
         throw new Error("'" + @temperatureName + "' does not excist")
       unless @framework.variableManager.getVariableByName(@temperatureInName)? or @temperatureInName is ""
@@ -433,12 +431,8 @@ module.exports = (env) ->
       unless @framework.variableManager.getVariableByName(@energyName)?
         throw new Error("'" + @energyName + "' does not excist")
 
-      @framework.on 'destroy', =>
-        env.logger.info "Shutting down ... saving variables of '" + @id + "'"
-        @_saveVars(@ddVarsFullFilename)
-        env.logger.info "Variables '" + @id + "' saved"
 
-      @updateJobs2.push new CronJob
+      @updateJobsHour = new CronJob
         cronTime: if @test then everyHourTest else everyHour
         onTick: =>
           if @test then env.logger.info "HourTest update"
@@ -468,7 +462,7 @@ module.exports = (env) ->
           _dd = @_degreedays.calculate(@baseTemperature, _temperatureHour, _windspeedHour) # calc degreedays Hour for current temperature and wind
           @degreedaysSampler.addSample _dd
 
-      @updateJobs2.push new CronJob
+      @updateJobsDay = new CronJob
         cronTime: if @test then everyDayTest else everyDay
         onTick: =>
           if @test then env.logger.info "DayTest update"
@@ -494,29 +488,57 @@ module.exports = (env) ->
           @attributeValues.r2 = null
 
           if @logging
-            _logData = @_saveData(@ddDataFullFilename)
-            _reg = @btt.getRegression(_logData)
-            if _reg.status
-              @attributes.calcTemp.hidden = false
-              @attributeValues.r2 = _reg.r2
-              @attributeValues.baseTemp = @baseTemperature
-              @attributeValues.calcTemp = @btt.findBaseTemperature()
+            @logData = @_saveData(@ddDataFullFilename)
+            @btt.setData(@baseTemperature, @logData)
+            .then () =>
+              _reg = @btt.getRegression()
+              if _reg.status
+                @attributes.calcTemp.hidden = false
+                @attributeValues.r2 = _reg.r2
+                @attributeValues.baseTemp = @baseTemperature
+                @attributeValues.calcTemp = @btt.findBaseTemperature()
 
-            else
-              @attributes.calcTemp.hidden = true
-              @attributeValues.r2 = _reg.r2
-              @attributeValues.baseTemp = @baseTemperature
-              @attributeValues.calcTemp = @baseTemperature
-              # @baseTemperature not automaticaly adjusted
-              # @btt.reset()
+              else
+                @attributes.calcTemp.hidden = true
+                @attributeValues.r2 = _reg.r2
+                @attributeValues.baseTemp = @baseTemperature
+                @attributeValues.calcTemp = @baseTemperature
+                # @baseTemperature not automaticaly adjusted
+                # @btt.reset()
 
           for _attrName of @attributes
             do (_attrName) =>
               @emit _attrName, @attributeValues[_attrName]
 
-      if @updateJobs2?
-        for jb2 in @updateJobs2
-          jb2.start()
+      if @updateJobsDay? then @updateJobsDay.start()
+      if @updateJobsHour? then @updateJobsHour.start()
+
+      @inputBaseTempName = "inputBaseTemp"
+      @framework.variableManager.waitForInit()
+      .then () =>
+        _baseTemp = @framework.variableManager.getVariableByName(@inputBaseTempName)
+        if _baseTemp? then @baseTemperature = _baseTemp.value
+        @framework.on 'variableValueChanged', @changeListener = (changedVar, value) =>
+          if changedVar.name is @inputBaseTempName and Number value isnt @attributeValues.baseTemp
+            env.logger.info "baseTemp changed to :" + Number value
+            @baseTemperature = Number value
+            @attributeValues.baseTemp = @baseTemperature
+            @emit 'baseTemp', @attributeValues.baseTemp
+            @btt.setData(@attributeValues.baseTemp, @logData)
+            .then () =>
+              _reg = @btt.getRegression()
+              env.logger.info "_reg: " + JSON.stringify(_reg)
+              if _reg.status
+                @attributeValues.r2 = _reg.r2
+                @attributeValues.baseTemp = @baseTemperature
+                @attributeValues.calcTemp = @btt.findBaseTemperature()
+              @emit 'r2', @attributeValues.r2
+              @emit 'calcTemp', @attributeValues.calcTemp
+ 
+      @framework.on 'destroy', =>
+        env.logger.info "Shutting down ... saving variables of '" + @id + "'"
+        @_saveVars(@ddVarsFullFilename)
+        env.logger.info "Variables '" + @id + "' saved"
 
       super()
 
@@ -544,15 +566,23 @@ module.exports = (env) ->
         if i isnt data.length-1 then str += ",\n" else str += "\n]"
       return str
 
+    _readLog: (_dataFullFilename) =>
+      degreedaysData = []
+      if fs.existsSync(_dataFullFilename)
+        data = fs.readFileSync(_dataFullFilename, 'utf8')
+        degreedaysData = JSON.parse(data)
+      return degreedaysData
+
     _saveData: (_dataFullFilename) =>
       d = new Date()
       moment = Moment(d).subtract(1, 'days')
       timestampDatetime = moment.format("YYYY-MM-DD")
-      if fs.existsSync(_dataFullFilename)
-        data = fs.readFileSync(_dataFullFilename, 'utf8')
-        degreedaysData = JSON.parse(data)
-      else
-        degreedaysData = []
+      degreedaysData = @_readLog(_dataFullFilename)
+      #if fs.existsSync(_dataFullFilename)
+      #  data = fs.readFileSync(_dataFullFilename, 'utf8')
+      #  degreedaysData = JSON.parse(data)
+      #else
+      #  degreedaysData = []
 
       update =
         id: @id
@@ -588,8 +618,9 @@ module.exports = (env) ->
 
 
     destroy: ->
-      if @updateJobs2?
-        jb2.stop() for jb2 in @updateJobs2
+      if @updateJobsDay? then @updateJobsDay.stop()
+      if @updateJobsHour? then @updateJobsHour.stop()
+      @framework.variableManager.removeListener('variableValueChanged', @changeListener)
       #save all temp variables
       @_saveVars(@ddVarsFullFilename)
       super()
@@ -750,39 +781,43 @@ module.exports = (env) ->
       @samples = _samples
 
   class baseTemperatureTracker
-    constructor: (baseTemp) ->
-      @samples = []
+    constructor: (baseTemp, _samples) ->
+      @samples = _samples ? []
       @baseTemperature = baseTemp
       @_degreedays = new Degreedays()
       @daysForRegression = 10
 
-    setBaseTemperature: (baseTemp) ->
-      @baseTemperature = baseTemp
-      #recalculate degreedays in sample array with new basetemp
-      for _sample, i in @samples
-        @samples[i].degreedays = @_degreedays.calculate(@baseTemperature, _sample.temperature, _sample.wind)
+    setData: (baseTemp, _samples) ->
+      return new Promise( (resolve) =>
+        @baseTemperature = baseTemp
+        if _samples? then @samples = _samples
+        #recalculate degreedays in sample array with new basetemp
+        for _sample, i in @samples
+          @samples[i].degreedays = @_degreedays.calculate(baseTemp, _sample.temperature, _sample.wind)
+        resolve()
+      )
 
     getDaysForRegression: ->
       return @daysForRegression
 
-    getRegression: (@_samples) ->
+    getRegression: () ->
 
       #_samples =[{temperatureDay, temperatureInDay, windspeedDay, energyDay, degreedaysDay, efficiencyDay}]
-      lr = {}
-      lr.slope = 0
-      lr.intercept = 0
-      lr.r2 = 0
-      lr.status = off
-      lr.waitdays = @daysForRegression
+      lr =
+        slope: 0
+        intercept: 0
+        r2: 0
+        status: off
+        waitdays: @daysForRegression
+        size: _.size(@samples) ? 0
 
-      if not @_samples?
+      if not @samples?
         return lr
-      if @_samples.length < @daysForRegression # test on minimum number of datasets for regression
-        lr.waitdays = @daysForRegression - @_samples.length
+      if @samples.length < @daysForRegression # test on minimum number of datasets for regression
+        lr.waitdays = @daysForRegression - @samples.length
         lr.status = off
         return lr
 
-      @samples = @_samples
       x = []
       y = []
       for _s in @samples
@@ -835,8 +870,8 @@ module.exports = (env) ->
       #itterate towards optimal baseTemperature
       while step > 0.01
         tempValue = tempValue + direction * step
-        @setBaseTemperature(tempValue)
-        R2 = @getRegression(@samples).r2
+        @setData(tempValue)
+        R2 = @getRegression().r2
         direction = -1 * direction if R2 <= lastR2
         step /= 2
         lastR2 = R2
