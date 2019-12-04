@@ -501,11 +501,14 @@ module.exports = (env) ->
             @btt.setData(@baseTemperature, @logData)
             .then () =>
               _reg = @btt.getRegression()
+              info.logger.debug "_reg: " + JSON.stringify(_reg)
               if _reg.status
                 @attributes.calcTemp.hidden = false
                 @attributeValues.r2 = _reg.r2
                 @attributeValues.baseTemp = @baseTemperature
                 @attributeValues.calcTemp = @btt.findBaseTemperature()
+                @emit 'r2', @attributeValues.r2
+                @emit 'calcTemp', @attributeValues.calcTemp
 
               else
                 @attributes.calcTemp.hidden = true
@@ -588,8 +591,6 @@ module.exports = (env) ->
               reject()
           )
       )
-
-
 
     _saveData: (_dataFullFilename) =>
       return new Promise( (resolve, reject) =>

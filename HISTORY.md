@@ -33,4 +33,6 @@
 * 20191130, v0.1.0
   * added baseTemp input variable
 * 20191201, v0.1.2
-  fixes
+  * fixes
+* 20191204, v0.1.3
+  * r2 debug logging
