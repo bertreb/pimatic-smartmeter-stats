@@ -34,5 +34,6 @@
   * added baseTemp input variable
 * 20191201, v0.1.2
   * fixes
-* 20191204, v0.1.3
+* 20191204, v0.1.4
   * r2 debug logging
+  * bugfix logData

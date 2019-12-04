@@ -580,24 +580,27 @@ module.exports = (env) ->
 
     _readLog: (_dataFullFilename) =>
       return new Promise( (resolve, reject) =>
-        degreedaysData = []
+        #degreedaysData = []
         if fs.existsSync(_dataFullFilename)
           fs.readFile(_dataFullFilename, 'utf8', (err, data) =>
             if !(err)
               degreedaysData = JSON.parse(data)
-              resolve()
+              resolve(degreedaysData)
             else
               env.logger.error err
               reject()
           )
+        else
+          degreedaysData =[]
+          resolve(degreedaysData)
       )
 
-    _saveData: (_dataFullFilename) =>
+    _saveData: (@_dataFullFilename) =>
       return new Promise( (resolve, reject) =>
         d = new Date()
         moment = Moment(d).subtract(1, 'days')
         timestampDatetime = moment.format("YYYY-MM-DD")
-        degreedaysData = @_readLog(_dataFullFilename)
+        @_readLog(@_dataFullFilename)
         .then (degreedaysData) =>
           #if fs.existsSync(_dataFullFilename)
           #  data = fs.readFileSync(_dataFullFilename, 'utf8')
@@ -617,10 +620,11 @@ module.exports = (env) ->
             effiency: Number @attributeValues.efficiency.toFixed(2)
           degreedaysData.push update
           if @test then env.logger.info "'" + @id + "' data is written to log"
-          fs.writeFileSync(_dataFullFilename, @_prettyCompactJSON(degreedaysData),'utf8')
+          fs.writeFileSync(@_dataFullFilename, @_prettyCompactJSON(degreedaysData),'utf8')
           env.logger.info "Log of '" + @id + "' saved"
           resolve(degreedaysData)
         .catch (err) =>
+          env.logger.error "_saveData @_readLog error: " + err
           reject()
       )
 
