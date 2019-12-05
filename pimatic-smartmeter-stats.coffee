@@ -504,7 +504,7 @@ module.exports = (env) ->
             .then (logData) =>
               env.logger.info "tot hier logData received"
               #env.logger.info "DATA2: " + JSON.stringify(logData)
-              @btt.setData(@baseTemperature, logData)
+              @btt.setData(@attributeValues.baseTemp, logData)
               .then (newData) =>
                 env.logger.info "newData received"
                 _reg = @btt.getRegression(newData)
@@ -561,7 +561,7 @@ module.exports = (env) ->
                 #@emit 'calcTemp', @attributeValues.calcTemp
               .catch (err) =>
                 env.logger.error "Var changed setData error: " + err
- 
+
       @framework.on 'destroy', =>
         env.logger.debug "Shutting down ... saving variables of '" + @id + "'"
         @_saveVars(@ddVarsFullFilename)
