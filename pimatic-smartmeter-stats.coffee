@@ -206,7 +206,7 @@ module.exports = (env) ->
           month: Number month.toFixed(1)
           unit: unit
         statsData.push update
-        if @test then env.logger.info "'" + @id + "' data is saved"
+        if @test then env.logger.debug "'" + @id + "' data is saved"
         fs.writeFileSync(@statsLogFullFilename, @_prettyCompactJSON(statsData),'utf8')
       catch e
         env.logger.error e.message
@@ -311,13 +311,14 @@ module.exports = (env) ->
         unit: '°C'
         default: ""
         acronym: 'baseTemp'
+      ###
       calcTemp:
         description: "Calculated BaseTemperature"
         type: types.number
         unit: '°C'
         default: ""
         acronym: 'calcTemp'
-
+      ###
 
     constructor: (@config, lastState, @framework, @dirPath) ->
       @id = @config.id
@@ -335,7 +336,7 @@ module.exports = (env) ->
       @temperatureInName = if @config.temperatureIn? then @config.temperatureIn else ""
       @energyName = if @config.energy[0] == "$" then @config.energy.substr(1) else @config.energy
       @baseTemperature = if @config.baseTemperature? then @config.baseTemperature else 18.0
-      @calcTemperature = if @config.calcTemperature? then @config.calcTemperature else @baseTemperature
+      #@calcTemperature = if @config.calcTemperature? then @config.calcTemperature else @baseTemperature
       @windspeedName =  if @config.windspeed? then @config.windspeed else ""
       if @temperatureInName[0]== "$" then @temperatureInName = @temperatureInName.substr(1)
       if @windspeedName[0]== "$" then @windspeedName = @windspeedName.substr(1)
@@ -360,36 +361,36 @@ module.exports = (env) ->
       @attributeValues = {}
 
       @_readLog(@ddDataFullFilename)
-      .then (data) =>
-        @logData = data
-        @btt = new baseTemperatureTracker(@baseTemperature, @logData)
-        if @logData.length>0
-          env.logger.info "Checking '" + @id + "' saved data ..."
-          _reg = @btt.getRegression()
-          env.logger.info "'" + @id + "' Saved data loaded, " + @logData.length + " days of data"
+      .then (logData) =>
+        @btt = new baseTemperatureTracker(@baseTemperature, logData)
+        if logData.length>0
+          env.logger.debug "Checking '" + @id + "' saved data ..."
+          _reg = @btt.getRegression(logData)
+          env.logger.debug "'" + @id + "' Saved data loaded, " + logData.length + " days of data"
           if _reg.status
             @attributeValues.r2 = 100 * _reg.r2
             @attributeValues.baseTemp =  @baseTemperature
-            @attributes.calcTemp.hidden = false
-            @attributeValues.calcTemp =  @btt.findBaseTemperature()
+            #@attributes.calcTemp.hidden = false
+            #@attributeValues.calcTemp =  @btt.findBaseTemperature()
           else
             @attributeValues.r2 = 100 * _reg.r2
             @attributeValues.baseTemp = @baseTemperature
-            @attributes.calcTemp.hidden = true
-            @attributeValues.calcTemp = @baseTemperature
+            #@attributes.calcTemp.hidden = true
+            #@attributeValues.calcTemp = @baseTemperature
+
       .catch (err) =>
-        @logData = []
-        @btt = new baseTemperatureTracker(@baseTemperature, @logData)
+        logData = []
+        #@btt = new baseTemperatureTracker(@baseTemperature, logData)
         @attributeValues.r2 = 0
         @attributeValues.baseTemp = @baseTemperature
-        @attributes.calcTemp.hidden = true
-        @attributeValues.calcTemp = @baseTemperature
+        #@attributes.calcTemp.hidden = true
+        #@attributeValues.calcTemp = @baseTemperature
 
 
       #load temp variables
       if fs.existsSync(@ddVarsFullFilename)
         data = fs.readFileSync(@ddVarsFullFilename, 'utf8')
-        env.logger.info "loading '" + @id + "' variables data ..."
+        env.logger.debug "loading '" + @id + "' variables data ..."
         tempData = JSON.parse(data)
         @_tempLastHour = tempData.tempLastHour
         @_tempInLastHour = tempData.tempInLastHour
@@ -425,7 +426,7 @@ module.exports = (env) ->
       @attributeValues.efficiency = lastState?.efficiency?.value or 0.0
       @attributeValues.r2 = lastState?.r2?.value or 0
       @attributeValues.baseTemp = lastState?.baseTemp?.value or 0.0
-      @attributeValues.calcTemp = lastState?.calcTemp?.value or 0.0
+      #@attributeValues.calcTemp = lastState?.calcTemp?.value or 0.0
       @attributeValues.statusLevel = lastState?.statusLevel?.value or 1
       @attributeValues.status = lastState?.status?.value or ""
 
@@ -445,6 +446,7 @@ module.exports = (env) ->
         cronTime: if @test then everyHourTest else everyHour
         onTick: =>
           if @test then env.logger.info "HourTest update"
+          env.logger.debug "Hourly update"
           _temp = Number @framework.variableManager.getVariableByName(@temperatureName).value
           _tempIn = if @temperatureInName isnt "" then Number @framework.variableManager.getVariableByName(@temperatureInName).value else _tempIn = null
           _windspeed = if @windspeedName isnt "" then Number @framework.variableManager.getVariableByName(@windspeedName).value else _windspeed = null
@@ -475,6 +477,7 @@ module.exports = (env) ->
         cronTime: if @test then everyDayTest else everyDay
         onTick: =>
           if @test then env.logger.info "DayTest update"
+          env.logger.debug "Daily update"
           @attributeValues.statusLevel +=1 unless @attributeValues.statusLevel >= 3
           if @attributeValues.statusLevel == 3
             moment = Moment(new Date()).subtract(1, 'days') # yesterdays info
@@ -493,30 +496,38 @@ module.exports = (env) ->
 
           @attributeValues.energyTotalLastDay = _energy # for usage per day
           @attributeValues.baseTemp = @baseTemperature
-          @attributeValues.calcTemp = @calcTemperature
-          @attributeValues.r2 = null
+          #@attributeValues.calcTemp = @calcTemperature
+          @attributeValues.r2 = 0
 
           if @logging
-            @logData = @_saveData(@ddDataFullFilename)
-            @btt.setData(@baseTemperature, @logData)
-            .then () =>
-              _reg = @btt.getRegression()
-              info.logger.debug "_reg: " + JSON.stringify(_reg)
-              if _reg.status
-                @attributes.calcTemp.hidden = false
-                @attributeValues.r2 = _reg.r2
-                @attributeValues.baseTemp = @baseTemperature
-                @attributeValues.calcTemp = @btt.findBaseTemperature()
-                @emit 'r2', @attributeValues.r2
-                @emit 'calcTemp', @attributeValues.calcTemp
+            @_saveData(@ddDataFullFilename)
+            .then (logData) =>
+              env.logger.info "tot hier logData received"
+              #env.logger.info "DATA2: " + JSON.stringify(logData)
+              @btt.setData(@baseTemperature, logData)
+              .then (newData) =>
+                env.logger.info "newData received"
+                _reg = @btt.getRegression(newData)
+                env.logger.info "_reg: " + JSON.stringify(_reg)
+                if _reg.status
+                  #@attributes.calcTemp.hidden = false
+                  @attributeValues.r2 = _reg.r2
+                  @attributeValues.baseTemp = @baseTemperature
+                  #@attributeValues.calcTemp = @btt.findBaseTemperature()
+                  @emit 'r2', @attributeValues.r2
+                  #@emit 'calcTemp', @attributeValues.calcTemp
 
-              else
-                @attributes.calcTemp.hidden = true
-                @attributeValues.r2 = _reg.r2
-                @attributeValues.baseTemp = @baseTemperature
-                @attributeValues.calcTemp = @baseTemperature
-                # @baseTemperature not automaticaly adjusted
-                # @btt.reset()
+                else
+                  #@attributes.calcTemp.hidden = true
+                  @attributeValues.r2 = _reg.r2
+                  @attributeValues.baseTemp = @baseTemperature
+                  #@attributeValues.calcTemp = @baseTemperature
+                  # @baseTemperature not automaticaly adjusted
+                  # @btt.reset()
+              .catch (err) =>
+                env.logger.error "setDate, data not set: " + err
+            .catch (err) =>
+              env.logger.error "_saveData, data not saved: " + err
 
           for _attrName of @attributes
             do (_attrName) =>
@@ -535,22 +546,26 @@ module.exports = (env) ->
             @baseTemperature = Number value
             @attributeValues.baseTemp = @baseTemperature
             @emit 'baseTemp', @attributeValues.baseTemp
-            @logData = @_readLog(@ddDataFullFilename)
-            @btt.setData(@attributeValues.baseTemp, @logData)
-            .then () =>
-              _reg = @btt.getRegression()
-              env.logger.info "_reg: " + JSON.stringify(_reg)
-              if _reg.status
-                @attributeValues.r2 = _reg.r2
-                @attributeValues.baseTemp = @baseTemperature
-                @attributeValues.calcTemp = @btt.findBaseTemperature()
-              @emit 'r2', @attributeValues.r2
-              @emit 'calcTemp', @attributeValues.calcTemp
+            @_readLog(@ddDataFullFilename)
+            .then (logData) =>
+              #env.logger.info "DATA: " + JSON.stringify(logData)
+              @btt.setData(@attributeValues.baseTemp, logData)
+              .then (newData) =>
+                _reg = @btt.getRegression(newData)
+                env.logger.info "Basetemp changed _reg: " + JSON.stringify(_reg)
+                if _reg.status
+                  @attributeValues.r2 = _reg.r2
+                  @attributeValues.baseTemp = @baseTemperature
+                  #@attributeValues.calcTemp = @btt.findBaseTemperature()
+                @emit 'r2', @attributeValues.r2
+                #@emit 'calcTemp', @attributeValues.calcTemp
+              .catch (err) =>
+                env.logger.error "Var changed setData error: " + err
  
       @framework.on 'destroy', =>
-        env.logger.info "Shutting down ... saving variables of '" + @id + "'"
+        env.logger.debug "Shutting down ... saving variables of '" + @id + "'"
         @_saveVars(@ddVarsFullFilename)
-        env.logger.info "Variables '" + @id + "' saved"
+        env.logger.debug "Variables '" + @id + "' saved"
 
       super()
 
@@ -620,7 +635,9 @@ module.exports = (env) ->
             effiency: Number @attributeValues.efficiency.toFixed(2)
           degreedaysData.push update
           if @test then env.logger.info "'" + @id + "' data is written to log"
+          env.logger.debug "'" + @id + "' data is written to log"
           fs.writeFileSync(@_dataFullFilename, @_prettyCompactJSON(degreedaysData),'utf8')
+          env.logger.debug "Log of '" + @id + "' saved"
           env.logger.info "Log of '" + @id + "' saved"
           resolve(degreedaysData)
         .catch (err) =>
@@ -815,22 +832,21 @@ module.exports = (env) ->
       @daysForRegression = 10
 
     setData: (baseTemp, _samples) =>
-      return new Promise( (resolve) =>
-        @baseTemperature = baseTemp
-        #if _samples? then @samples = _samples
-        #recalculate degreedays in sample array with new basetemp
-        #env.logger.info "Tot hier _samples " + JSON.stringify(_samples)
-        for _sample, i in _samples
-          _newDegreedays = @_degreedays.calculate(baseTemp, _sample.temperature, _sample.wind)
-          @samples[i].degreedays = _newDegreedays
-        #env.logger.info "@samples after update: " +  JSON.stringify(@samples)
-        #resolve()
+      return new Promise( (resolve,reject) =>
+        _newSamples = []
+        unless _samples?
+          reject()
+        baseTemperature = baseTemp
+        for _sample in _samples
+          _sample.degreedays = @_degreedays.calculate(baseTemp, _sample.temperature, _sample.wind)
+          _newSamples.push _sample
+        resolve(_newSamples)
       )
 
     getDaysForRegression: =>
       return @daysForRegression
 
-    getRegression: () =>
+    getRegression: (_data) =>
 
       #_samples =[{temperatureDay, temperatureInDay, windspeedDay, energyDay, degreedaysDay, efficiencyDay}]
       lr =
@@ -839,13 +855,13 @@ module.exports = (env) ->
         r2: 0
         status: off
         waitdays: @daysForRegression
-        size: _.size(@samples) ? 0
+        size: _.size(_data) ? 0
 
       #env.logger.info "@samples: " + JSON.stringify(@samples)
       #env.logger.info "lr1: " + lr
 
 
-      if not @samples? or lr.size is 0
+      if not _data? or lr.size is 0
         return lr
       if lr.size < @daysForRegression # test on minimum number of datasets for regression
         lr.waitdays = @daysForRegression - lr.size
@@ -854,7 +870,7 @@ module.exports = (env) ->
 
       x = []
       y = []
-      for _s in @samples
+      for _s in _data
         do (_s) =>
           if _s.energy isnt 0 and _s.degreedays isnt 0
             x.push Number _s.energy
@@ -876,7 +892,7 @@ module.exports = (env) ->
 
       lr.slope = (n * sum_xy - sum_x * sum_y) / (n*sum_xx - sum_x * sum_x)
       lr.intercept =  (sum_y - lr.slope * sum_x)/n
-      lr.r2 = Math.pow((n*sum_xy - sum_x*sum_y)/Math.sqrt((n*sum_xx-sum_x*sum_x)*(n*sum_yy-sum_y*sum_y)),2)
+      lr.r2 = 100 * Math.pow((n*sum_xy - sum_x*sum_y)/Math.sqrt((n*sum_xx-sum_x*sum_x)*(n*sum_yy-sum_y*sum_y)),2)
       if Number.isNaN(lr.r2)
         env.logger.debug lr
         lr.slope = 0
@@ -885,12 +901,13 @@ module.exports = (env) ->
         lr.status = off
         return lr
 
-      env.logger.info "lr2: " + JSON.stringify(lr)
+      #env.logger.info "lr2: " + JSON.stringify(lr)
 
       lr.waitdays = 0
       lr.status = on
       return lr
 
+    ###
     findBaseTemperature: () =>
 
       #search for optimal baseTemp in range 12 - 24 degrees celcius to get maximum R2
@@ -906,11 +923,19 @@ module.exports = (env) ->
       #itterate towards optimal baseTemperature
       while step > 0.01
         tempValue = tempValue + direction * step
-        @setData(tempValue)
+        env.logger.info "tot hier 1"
+        _samples = @samples
+        for _sample, i in _samples
+          _newDegreedays = @_degreedays.calculate(baseTemp, _sample.temperature, _sample.wind)
+          @samples[i].degreedays = _newDegreedays
+        #t
+        env.logger.info "tot hier 2"
         R2 = @getRegression().r2
         direction = -1 * direction if R2 <= lastR2
         step /= 2
         lastR2 = R2
+        env.logger.info "tot hier 3"
       return tempValue
+    ###
 
   return plugin
