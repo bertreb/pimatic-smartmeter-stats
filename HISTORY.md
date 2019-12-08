@@ -39,5 +39,5 @@
   * bugfix logData
 * 20191205, v0.1.6
   * removed calculated baseTemperature
-* 20191207, v0.1.7
+* 20191207, v0.1.8
   * r2 fix

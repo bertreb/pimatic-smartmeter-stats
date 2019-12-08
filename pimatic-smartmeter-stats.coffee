@@ -509,7 +509,7 @@ module.exports = (env) ->
             env.logger.debug "Checking '" + @id + "' saved data ..."
             _reg = @btt.getRegression(logData)
             env.logger.debug "'" + @id + "' Saved data loaded, " + logData.length + " days of data"
-            @attributeValues.r2 = 100 * _reg.r2
+            @attributeValues.r2 = _reg.r2
             @attributeValues.baseTemp =  @baseTemperature
             @emit 'r2', @attributeValues.r2
 
