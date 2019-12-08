@@ -360,31 +360,6 @@ module.exports = (env) ->
 
       @attributeValues = {}
 
-      @_readLog(@ddDataFullFilename)
-      .then (logData) =>
-        @btt = new baseTemperatureTracker(@baseTemperature, logData)
-        if logData.length>0
-          env.logger.debug "Checking '" + @id + "' saved data ..."
-          _reg = @btt.getRegression(logData)
-          env.logger.debug "'" + @id + "' Saved data loaded, " + logData.length + " days of data"
-          if _reg.status
-            @attributeValues.r2 = 100 * _reg.r2
-            @attributeValues.baseTemp =  @baseTemperature
-            #@attributes.calcTemp.hidden = false
-            #@attributeValues.calcTemp =  @btt.findBaseTemperature()
-          else
-            @attributeValues.r2 = 100 * _reg.r2
-            @attributeValues.baseTemp = @baseTemperature
-            #@attributes.calcTemp.hidden = true
-            #@attributeValues.calcTemp = @baseTemperature
-
-      .catch (err) =>
-        logData = []
-        #@btt = new baseTemperatureTracker(@baseTemperature, logData)
-        @attributeValues.r2 = 0
-        @attributeValues.baseTemp = @baseTemperature
-        #@attributes.calcTemp.hidden = true
-        #@attributeValues.calcTemp = @baseTemperature
 
 
       #load temp variables
@@ -502,28 +477,16 @@ module.exports = (env) ->
           if @logging
             @_saveData(@ddDataFullFilename)
             .then (logData) =>
-              env.logger.info "tot hier logData received"
+              env.logger.debug "tot hier logData received"
               #env.logger.info "DATA2: " + JSON.stringify(logData)
               @btt.setData(@attributeValues.baseTemp, logData)
               .then (newData) =>
-                env.logger.info "newData received"
+                env.logger.debug "newData received"
                 _reg = @btt.getRegression(newData)
-                env.logger.info "_reg: " + JSON.stringify(_reg)
-                if _reg.status
-                  #@attributes.calcTemp.hidden = false
-                  @attributeValues.r2 = _reg.r2
-                  @attributeValues.baseTemp = @baseTemperature
-                  #@attributeValues.calcTemp = @btt.findBaseTemperature()
-                  @emit 'r2', @attributeValues.r2
-                  #@emit 'calcTemp', @attributeValues.calcTemp
-
-                else
-                  #@attributes.calcTemp.hidden = true
-                  @attributeValues.r2 = _reg.r2
-                  @attributeValues.baseTemp = @baseTemperature
-                  #@attributeValues.calcTemp = @baseTemperature
-                  # @baseTemperature not automaticaly adjusted
-                  # @btt.reset()
+                env.logger.debug "_reg: " + JSON.stringify(_reg)
+                @attributeValues.r2 = _reg.r2
+                @attributeValues.baseTemp = @baseTemperature
+                @emit 'r2', @attributeValues.r2
               .catch (err) =>
                 env.logger.error "setDate, data not set: " + err
             .catch (err) =>
@@ -539,6 +502,24 @@ module.exports = (env) ->
       @inputBaseTempName = "inputBaseTemp"
       @framework.variableManager.waitForInit()
       .then () =>
+        @_readLog(@ddDataFullFilename)
+        .then (logData) =>
+          @btt = new baseTemperatureTracker(@baseTemperature, logData)
+          if logData.length>0
+            env.logger.debug "Checking '" + @id + "' saved data ..."
+            _reg = @btt.getRegression(logData)
+            env.logger.debug "'" + @id + "' Saved data loaded, " + logData.length + " days of data"
+            @attributeValues.r2 = 100 * _reg.r2
+            @attributeValues.baseTemp =  @baseTemperature
+            @emit 'r2', @attributeValues.r2
+
+        .catch (err) =>
+          env.logger.error "Error in @_readlog: " + err
+          logData = []
+          @attributeValues.r2 = 0
+          @attributeValues.baseTemp = @baseTemperature
+          @emit 'r2', @attributeValues.r2
+
         #check on number of sample days for regression
         @framework.on 'variableValueChanged', @changeListener = (changedVar, value) =>
           if changedVar.name is @inputBaseTempName and Number value isnt @attributeValues.baseTemp
