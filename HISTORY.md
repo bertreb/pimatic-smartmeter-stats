@@ -41,3 +41,5 @@
   * removed calculated baseTemperature
 * 20191207, v0.1.8
   * r2 fix
+* 202001056, v0.2.0
+  * release for long run testing
