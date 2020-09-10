@@ -97,7 +97,7 @@ When the plugin is installed (including restart) a SmartmeterStats device can be
   "input": "<name>", // The generated name for the input value (is result of expression)
   "expression": "....." // The input variable or expression string
   "unit": "" // The unit for the values, examples kWh, m3, etc
-  "statistics": ["hour", "day", "week", "month"] // The timescale and name of the resulting variable
+  "statistics": ["minute", hour", "day", "week", "month"] // The timescale and name of the resulting variable
   "log": false | true // Enable to have a daily log of the Stats values
   "test": boolean
 }
@@ -108,6 +108,7 @@ Configuration
 The initial device exposes no variables in the GUI. You can add them in the device configuration.
 The available statistics variables are:
 - actual - the actual input value. This is the result of the expression and will be updated if one of the expression variables changes.
+- minute - the change of the expression input value in the last minute
 - hour - the change of the expression input value in the last hour
 - day - the change of the input value in the last day (00:00-23:59)
 - week - the change of the input value in the last week (monday-sunday)

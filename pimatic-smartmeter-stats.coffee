@@ -11,12 +11,14 @@ module.exports = (env) ->
   CronJob = env.CronJob or require('cron').CronJob
 
   # cron definitions
+  everyMinute = "0 * * * * *"
   everyHour = "0 0 * * * *"
   everyDay = "0 1 0 * * *" # at midnight at 00:01
   everyWeek = "0 2 0 * * 1" # monday at 00:02
   everyMonth = "0 3 0 1 * *" # first day of the month at 00:03
 
   # cron test definitions
+  everyMinuteTest = "*/5 * * * * *" # every 5 seconds
   everyHourTest = "0,15,30,45 * * * * *" # every 15 seconds
   everyDayTest = "2 */2 * * * *" # every 2 minutes + 2 seconds
   everyWeekTest = "20 */3 * * * *" # every 3 minutes and 5 seconds
@@ -64,7 +66,7 @@ module.exports = (env) ->
       @statsLogFullFilename = path.join(@dirPath, './' + @id + '-data.json')
       @test = @config.test
 
-      @attributeList = ["actual", "hour", "lasthour", "day", "lastday", "week", "lastweek", "month", "lastmonth"]
+      @attributeList = ["actual", "minute", "lastminute", "hour", "lasthour", "day", "lastday", "week", "lastweek", "month", "lastmonth"]
       @attributes = {}
       @attributeValues = {}
 
@@ -85,6 +87,8 @@ module.exports = (env) ->
       @updateJobs = []
 
       @attributeValues.actual = lastState?.actual?.value or 0.0
+      @attributeValues.minute = lastState?.minute?.value or 0.0
+      @attributeValues.lastminute = lastState?.lastminute?.value or 0.0
       @attributeValues.hour = lastState?.hour?.value or 0.0
       @attributeValues.lasthour = lastState?.lasthour?.value or 0.0
       @attributeValues.day = lastState?.day?.value or 0.0
@@ -119,6 +123,7 @@ module.exports = (env) ->
           @emit "actual", val
           @attributeValues.actual = val
           if @init == true # set all lastValues to the current input value
+            @attributeValues.lastminute = val if @attributeValues.lastminute is 0
             @attributeValues.lasthour = val if @attributeValues.lasthour is 0
             @attributeValues.lastday = val  if @attributeValues.lastday is 0
             @attributeValues.lastweek = val if @attributeValues.lastweek is 0
@@ -147,6 +152,14 @@ module.exports = (env) ->
           @attributes[attributeName].hidden = false
           @attributes[attributeName].unit = @unit
           switch attributeName
+            when "minute"
+              @updateJobs.push new CronJob
+                cronTime:  if @config.test then everyMinuteTest else everyMinute
+                onTick: =>
+                  @attributeValues.minute = @attributeValues.actual - @attributeValues.lastminute
+                  @attributeValues.lastminute = @attributeValues.actual
+                  @emit "minute", @attributeValues.minute
+                  @emit "lastminute", @attributeValues.lastminute
             when "hour"
               @updateJobs.push new CronJob
                 cronTime:  if @config.test then everyHourTest else everyHour

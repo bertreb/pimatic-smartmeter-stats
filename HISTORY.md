@@ -43,3 +43,5 @@
   * r2 fix
 * 202001056, v0.2.0
   * release for long run testing
+* 20200910, v0.2.11
+  * added minute in stats device
