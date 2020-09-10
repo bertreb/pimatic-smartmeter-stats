@@ -66,7 +66,7 @@ module.exports = (env) ->
       @statsLogFullFilename = path.join(@dirPath, './' + @id + '-data.json')
       @test = @config.test
 
-      @attributeList = ["actual", "actualday", "5minute", "last5minute", "hour", "lasthour", "day", "lastday", "week", "lastweek", "month", "lastmonth"]
+      @attributeList = ["actual", "actualday", "fiveminute", "lastfiveminute", "hour", "lasthour", "day", "lastday", "week", "lastweek", "month", "lastmonth"]
       @attributes = {}
       @attributeValues = {}
 
@@ -88,8 +88,8 @@ module.exports = (env) ->
 
       @attributeValues.actual = lastState?.actual?.value or 0.0
       @attributeValues.actualday = lastState?.actualday?.value or 0.0
-      @attributeValues.5minute = lastState?.5minute?.value or 0.0
-      @attributeValues.last5minute = lastState?.last5minute?.value or 0.0
+      @attributeValues.fiveminute = lastState?.fiveminute?.value or 0.0
+      @attributeValues.lastfiveminute = lastState?.lastfiveminute?.value or 0.0
       @attributeValues.hour = lastState?.hour?.value or 0.0
       @attributeValues.lasthour = lastState?.lasthour?.value or 0.0
       @attributeValues.day = lastState?.day?.value or 0.0
@@ -126,7 +126,7 @@ module.exports = (env) ->
           @attributeValues.actualday = val - @attributeValues.lastday
           @emit "actualday", @attributeValues.actualday
           if @init == true # set all lastValues to the current input value
-            @attributeValues.last5minute = val if @attributeValues.last5minute is 0
+            @attributeValues.lastfiveminute = val if @attributeValues.lastfiveminute is 0
             @attributeValues.lasthour = val if @attributeValues.lasthour is 0
             @attributeValues.lastday = val  if @attributeValues.lastday is 0
             @attributeValues.lastweek = val if @attributeValues.lastweek is 0
@@ -155,14 +155,14 @@ module.exports = (env) ->
           @attributes[attributeName].hidden = false
           @attributes[attributeName].unit = @unit
           switch attributeName
-            when "5minute"
+            when "fiveminute"
               @updateJobs.push new CronJob
                 cronTime:  if @config.test then every5MinuteTest else every5Minute
                 onTick: =>
-                  @attributeValues.5minute = @attributeValues.actual - @attributeValues.last5minute
-                  @attributeValues.last5minute = @attributeValues.actual
-                  @emit "5minute", @attributeValues.5minute
-                  @emit "last5minute", @attributeValues.last5minute
+                  @attributeValues.fiveminute = @attributeValues.actual - @attributeValues.lastfiveminute
+                  @attributeValues.lastfiveminute = @attributeValues.actual
+                  @emit "fiveminute", @attributeValues.fiveminute
+                  @emit "lastfiveminute", @attributeValues.lastfiveminute
             when "hour"
               @updateJobs.push new CronJob
                 cronTime:  if @config.test then everyHourTest else everyHour
