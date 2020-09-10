@@ -43,5 +43,5 @@
   * r2 fix
 * 202001056, v0.2.0
   * release for long run testing
-* 20200910, v0.2.13
+* 20200910, v0.2.14
   * added 5 minute and current day in stats device

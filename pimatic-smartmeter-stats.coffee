@@ -11,7 +11,7 @@ module.exports = (env) ->
   CronJob = env.CronJob or require('cron').CronJob
 
   # cron definitions
-  every5Minute = " 0 */5 * * * *"
+  every5Minute = "0 */5 * * * *"
   everyHour = "0 0 * * * *"
   everyDay = "0 1 0 * * *" # at midnight at 00:01
   everyWeek = "0 2 0 * * 1" # monday at 00:02
