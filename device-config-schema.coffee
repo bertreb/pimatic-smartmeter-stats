@@ -23,7 +23,7 @@ module.exports = {
         default: []
         format: "table"
         items:
-          enum: ["actual", "minute", "hour", "day", "week", "month"]
+          enum: ["actual", "actualday", "minute", "hour", "day", "week", "month"]
       log:
         description: "enable to get daily data (in JSON format) in a logfile"
         type: "boolean"

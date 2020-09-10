@@ -11,18 +11,18 @@ module.exports = (env) ->
   CronJob = env.CronJob or require('cron').CronJob
 
   # cron definitions
-  everyMinute = "0 * * * * *"
+  every5Minute = " 0 */5 * * * *"
   everyHour = "0 0 * * * *"
   everyDay = "0 1 0 * * *" # at midnight at 00:01
   everyWeek = "0 2 0 * * 1" # monday at 00:02
   everyMonth = "0 3 0 1 * *" # first day of the month at 00:03
 
   # cron test definitions
-  everyMinuteTest = "*/5 * * * * *" # every 5 seconds
-  everyHourTest = "0,15,30,45 * * * * *" # every 15 seconds
+  every5MinuteTest = "*/30 * * * * *" # every 30 seconds
+  everyHourTest = "0 * * * * *" # every minute
   everyDayTest = "2 */2 * * * *" # every 2 minutes + 2 seconds
-  everyWeekTest = "20 */3 * * * *" # every 3 minutes and 5 seconds
-  everyMonthTest = "30 */5 * * * *" #every 5 minutes and 10 seconds
+  everyWeekTest = "20 */3 * * * *" # every 3 minutes and 20 seconds
+  everyMonthTest = "30 */5 * * * *" #every 5 minutes and 30 seconds
 
   class SmartmeterStatsPlugin extends env.plugins.Plugin
     init: (app, @framework, @config) =>
@@ -66,7 +66,7 @@ module.exports = (env) ->
       @statsLogFullFilename = path.join(@dirPath, './' + @id + '-data.json')
       @test = @config.test
 
-      @attributeList = ["actual", "minute", "lastminute", "hour", "lasthour", "day", "lastday", "week", "lastweek", "month", "lastmonth"]
+      @attributeList = ["actual", "actualday", "5minute", "last5minute", "hour", "lasthour", "day", "lastday", "week", "lastweek", "month", "lastmonth"]
       @attributes = {}
       @attributeValues = {}
 
@@ -87,8 +87,9 @@ module.exports = (env) ->
       @updateJobs = []
 
       @attributeValues.actual = lastState?.actual?.value or 0.0
-      @attributeValues.minute = lastState?.minute?.value or 0.0
-      @attributeValues.lastminute = lastState?.lastminute?.value or 0.0
+      @attributeValues.actualday = lastState?.actualday?.value or 0.0
+      @attributeValues.5minute = lastState?.5minute?.value or 0.0
+      @attributeValues.last5minute = lastState?.last5minute?.value or 0.0
       @attributeValues.hour = lastState?.hour?.value or 0.0
       @attributeValues.lasthour = lastState?.lasthour?.value or 0.0
       @attributeValues.day = lastState?.day?.value or 0.0
@@ -122,8 +123,10 @@ module.exports = (env) ->
         evaluateExpr().then( (val) =>
           @emit "actual", val
           @attributeValues.actual = val
+          @attributeValues.actualday = val - @attributeValues.lastday
+          @emit "actualday", @attributeValues.actualday
           if @init == true # set all lastValues to the current input value
-            @attributeValues.lastminute = val if @attributeValues.lastminute is 0
+            @attributeValues.last5minute = val if @attributeValues.last5minute is 0
             @attributeValues.lasthour = val if @attributeValues.lasthour is 0
             @attributeValues.lastday = val  if @attributeValues.lastday is 0
             @attributeValues.lastweek = val if @attributeValues.lastweek is 0
@@ -152,14 +155,14 @@ module.exports = (env) ->
           @attributes[attributeName].hidden = false
           @attributes[attributeName].unit = @unit
           switch attributeName
-            when "minute"
+            when "5minute"
               @updateJobs.push new CronJob
-                cronTime:  if @config.test then everyMinuteTest else everyMinute
+                cronTime:  if @config.test then every5MinuteTest else every5Minute
                 onTick: =>
-                  @attributeValues.minute = @attributeValues.actual - @attributeValues.lastminute
-                  @attributeValues.lastminute = @attributeValues.actual
-                  @emit "minute", @attributeValues.minute
-                  @emit "lastminute", @attributeValues.lastminute
+                  @attributeValues.5minute = @attributeValues.actual - @attributeValues.last5minute
+                  @attributeValues.last5minute = @attributeValues.actual
+                  @emit "5minute", @attributeValues.5minute
+                  @emit "last5minute", @attributeValues.last5minute
             when "hour"
               @updateJobs.push new CronJob
                 cronTime:  if @config.test then everyHourTest else everyHour
