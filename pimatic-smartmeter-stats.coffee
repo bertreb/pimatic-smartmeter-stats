@@ -121,7 +121,7 @@ module.exports = (env) ->
 
       onChangedVar = ( (changedVar) =>
         evaluateExpr().then( (val) =>
-          if val > @attributeValues.actual
+          if val >= @attributeValues.actual
             @emit "actual", val
             @attributeValues.actual = val
             @attributeValues.actualday = val - @attributeValues.lastday

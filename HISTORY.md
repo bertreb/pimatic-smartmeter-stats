@@ -45,5 +45,5 @@
   * release for long run testing
 * 20200910, v0.2.15
   * added 5 minute and current day in stats device
-* 20200910, v0.2.17
+* 20200910, v0.2.18
   * prevent negative values actualday
