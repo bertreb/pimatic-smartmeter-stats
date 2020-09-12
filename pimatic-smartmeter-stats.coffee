@@ -121,11 +121,11 @@ module.exports = (env) ->
 
       onChangedVar = ( (changedVar) =>
         evaluateExpr().then( (val) =>
-          @emit "actual", val
-          @attributeValues.actual = val
-          @attributeValues.actualday = val - @attributeValues.lastday
-          if @attributeValues.actualday < 0 then @attributeValues.actualday = 0
-          @emit "actualday", @attributeValues.actualday
+          if val > @attributeValues.actual
+            @emit "actual", val
+            @attributeValues.actual = val
+            @attributeValues.actualday = val - @attributeValues.lastday
+            @emit "actualday", @attributeValues.actualday
           if @init == true # set all lastValues to the current input value
             @attributeValues.lastfiveminute = val if @attributeValues.lastfiveminute is 0
             @attributeValues.lasthour = val if @attributeValues.lasthour is 0
