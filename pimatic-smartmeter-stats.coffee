@@ -178,6 +178,8 @@ module.exports = (env) ->
                 onTick: =>
                   @attributeValues.day = @attributeValues.actual - @attributeValues.lastday
                   @attributeValues.lastday = @attributeValues.actual
+                  @attributeValues.actualday = 0
+                  @emit "actualday", @attributeValues.actualday
                   @emit "day", @attributeValues.day
                   @emit "lastday", @attributeValues.lastday
                   if @logging

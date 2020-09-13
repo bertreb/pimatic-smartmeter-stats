@@ -47,3 +47,5 @@
   * added 5 minute and current day in stats device
 * 20200910, v0.2.18
   * prevent negative values actualday
+* 20200903, v0.2.19
+  * reset actualday at 00:00
