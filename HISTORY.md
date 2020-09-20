@@ -49,3 +49,5 @@
   * prevent negative values actualday
 * 20200903, v0.2.19
   * reset actualday at 00:00
+* 20200920, v0.2.20
+  * added solar stats device for daily csv log file

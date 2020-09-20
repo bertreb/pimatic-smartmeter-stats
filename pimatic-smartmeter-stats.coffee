@@ -6,12 +6,16 @@ module.exports = (env) ->
   M = env.matcher
   Moment = require 'moment-timezone'
   path = require 'path'
+  converter = require('json-2-csv')
+
   _ = env.require('lodash')
 
   CronJob = env.CronJob or require('cron').CronJob
 
   # cron definitions
   every5Minute = "0 */5 * * * *"
+  everyMinute = "0 * * * * *"
+  everySample = "10 */5 * * * *" # every 10 minutes + 10 seconds
   everyHour = "0 0 * * * *"
   everyDay = "0 1 0 * * *" # at midnight at 00:01
   everyWeek = "0 2 0 * * 1" # monday at 00:02
@@ -35,6 +39,10 @@ module.exports = (env) ->
       @framework.deviceManager.registerDeviceClass('SmartmeterStatsDevice', {
         configDef: deviceConfigDef.SmartmeterStatsDevice,
         createCallback: (config, lastState) => new SmartmeterStatsDevice(config, lastState, @framework, @dirPath)
+      })
+      @framework.deviceManager.registerDeviceClass('SmartmeterSolarDevice', {
+        configDef: deviceConfigDef.SmartmeterSolarDevice,
+        createCallback: (config, lastState) => new SmartmeterSolarDevice(config, lastState, @framework, @dirPath)
       })
       @framework.deviceManager.registerDeviceClass('SmartmeterDegreedaysDevice', {
         configDef: deviceConfigDef.SmartmeterDegreedaysDevice,
@@ -250,6 +258,156 @@ module.exports = (env) ->
 
     destroy: ->
       @_vars.cancelNotifyOnChange(cl) for cl in @_exprChangeListeners
+      if @updateJobs?
+        jb.stop() for jb in @updateJobs
+      super()
+
+  class SmartmeterSolarDevice extends env.devices.Device
+
+    actions:
+      resetSolarStats:
+        description: "Resets the stats attribute values"
+
+    constructor: (@config, lastState, @framework, @dirPath) ->
+
+      @id = @config.id
+      @name = @config.name
+
+      @attributes = {}
+      @attributeValues = {}
+
+      @emptyRow = {}
+      @nrOfSamples = 0 # @config.nrOfSamples ? 15 # default 15 minutes
+      @sampleData = {}
+      @updateJobs = []
+
+      @dataFullFilename = @_getFullFileName()
+
+      @_readData(@dataFullFilename)
+      .then((data)=>
+        @data = data
+      )
+
+      for _variable in @config.variables
+        for _attribute in _variable.attributes
+          _attr = _attribute.attributeId
+          #env.logger.debug("Device: " + _variable.deviceId + ", attribute: " + _attr)
+          _newColumn = _variable.deviceId + '.' + _attr
+          _var = @framework.variableManager.getVariableByName(_newColumn)
+          unless _var?
+            throw new Error "variable '#{_variable.deviceId}.#{_attr}' does not excist"
+          if @emptyRow[_newColumn]?
+            throw new Error "variable '#{_variable.deviceId}.#{_attr}' already added"
+
+          @emptyRow[_newColumn] = 0
+          @attributes[_newColumn] =
+            description: _attr
+            type: "number"
+            unit: _var.unit ? "Wh"
+            acronym: _var.acronym ? _attr
+            default: 0.0
+          @attributeValues[_newColumn] = 0.0
+          @_createGetter(_newColumn, =>
+            return Promise.resolve @attributeValues[_newColumn]
+          )
+      @sampleData = @emptyRow
+      
+      #env.logger.debug "@newRow: " + JSON.stringify(@newRow,null,2)
+
+      @updateJobs.push new CronJob
+        cronTime:  everyMinute
+        onTick: =>
+          for _variable in @config.variables
+            for _attribute in _variable.attributes
+              _column = _variable.deviceId + '.' + _attribute.attributeId
+              _value = @framework.variableManager.getVariableValue(_column)
+              @sampleData[_column] = @sampleData[_column] + _value
+              @emit _column, _value
+          @nrOfSamples += 1
+          env.logger.debug("sampleData: " + JSON.stringify(@sampleData,null,2) + ", nrOfSamples " + @nrOfSamples)
+
+      @updateJobs.push new CronJob
+        cronTime:  everySample
+        onTick: =>
+          _newSampleRow = {}
+          d = new Date()
+          moment = Moment(d)
+          timestamp = moment.format("YYYY-MM-DD HH:mm")
+          _newSampleRow["timestamp"] = timestamp
+          # calculate average per column and add average to sampleRow
+          for _variable in @config.variables
+            for _attribute in _variable.attributes
+              _column = _variable.deviceId + '.' + _attribute.attributeId
+              _newSampleRow[_column] = @sampleData[_column] / @nrOfSamples # aantal samples
+          # add sampleRow tot @data
+          @nrOfSamples = 0
+          @data.push _newSampleRow
+
+          @_saveData(@dataFullFilename,@data)
+          # reset @sampleData
+          for i, _data of @sampleData
+            @sampleData[i] = 0
+          env.logger.debug "data: " + JSON.stringify(@data,null,2)
+
+      @updateJobs.push new CronJob
+        cronTime:  everyDay
+        onTick: =>
+          @data = []
+          @dataFullFilename = @_getFullFileName() # new day is new file
+
+      if @updateJobs?
+        for jb in @updateJobs
+          jb.start()
+
+      super()
+
+    _getFullFileName:()=>
+      d = new Date()
+      moment = Moment(d)
+      datestamp = moment.format("YYYYMMDD")
+
+      _dataFullFilename = path.join(@dirPath, './' + datestamp + '-' + @id + '.csv')
+
+      return _dataFullFilename
+
+
+    _readData: (_dataFullFilename) =>
+      return new Promise( (resolve, reject) =>
+        if fs.existsSync(_dataFullFilename)
+          fs.readFile(_dataFullFilename, 'utf8', (err, data) =>
+            if err?
+              env.logger.debug "Handled error readData " + err
+              _data = []
+              resolve _data
+            converter.csv2json(data, (err, data)=>
+              if err?
+                env.logger.debug "Handled error csv2json " + err
+                _data = []
+                resolve _data
+              resolve data
+            )
+          )
+        else
+          _data = []
+          resolve _data
+    )
+
+    _saveData: (_dataFullFilename, data) =>
+      return new Promise( (resolve, reject) =>
+        converter.json2csv(data, (err, _csvData) =>
+          if err?
+            env.logger.debug "Handled error json2csv " + err
+            reject()
+          fs.writeFileSync(_dataFullFilename, _csvData,'utf8')
+          resolve()
+        )
+      )
+
+    resetSmartmeterStats: () ->
+      Promise.resolve()
+
+    destroy: ->
+      @_saveData(@dataFullFilename,@data)
       if @updateJobs?
         jb.stop() for jb in @updateJobs
       super()

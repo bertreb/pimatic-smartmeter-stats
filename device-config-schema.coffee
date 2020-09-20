@@ -32,7 +32,38 @@ module.exports = {
         type: "boolean"
         description: "enable to get faster timing for testing (Hour=10 sec, Day=1 minute, Week=3 minutes, Month=10 minutes)"
         default: false
-  }
+  },
+  SmartmeterSolarDevice: {
+    title: "Smartmeter Solar device"
+    type: "object"
+    extensions: ["xLink", "xAttributeOptions"]
+    properties:
+      nrOfSamples:
+        description: "The number of 1 minute samples (default: 15)"
+        type: "number"
+      variables:
+        description: "Variables to add to the log row"
+        type: "array"
+        default: []
+        format: "table"
+        items:
+          type: "object"
+          properties:
+            deviceId:
+              description: "DeviceId of the to be used attributes"
+              type: "string"
+            attributes:
+              description: "Attributes for the log"
+              type: "array"
+              default: []
+              format: "table"
+              items:
+                type: "object"
+                properties:
+                  attributeId:
+                    description: "AttributeId of the to be used attributes"
+                    type: "string"
+  },
   SmartmeterDegreedaysDevice: {
     title: "Smartmeter heating options"
     type: "object"
