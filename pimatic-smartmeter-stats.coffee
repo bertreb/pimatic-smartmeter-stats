@@ -15,7 +15,7 @@ module.exports = (env) ->
   # cron definitions
   every5Minute = "0 */5 * * * *"
   everyMinute = "0 * * * * *"
-  everySample = "10 */5 * * * *" # every 10 minutes + 10 seconds
+  everySample = "10 */15 * * * *" # every 15 minutes + 10 seconds
   everyHour = "0 0 * * * *"
   everyDay = "0 1 0 * * *" # at midnight at 00:01
   everyWeek = "0 2 0 * * 1" # monday at 00:02
@@ -304,14 +304,14 @@ module.exports = (env) ->
             description: _attr
             type: "number"
             unit: _var.unit ? "Wh"
-            acronym: _var.acronym ? _attr
+            acronym: _newColumn
             default: 0.0
           @attributeValues[_newColumn] = 0.0
           @_createGetter(_newColumn, =>
             return Promise.resolve @attributeValues[_newColumn]
           )
       @sampleData = @emptyRow
-      
+
       #env.logger.debug "@newRow: " + JSON.stringify(@newRow,null,2)
 
       @updateJobs.push new CronJob
