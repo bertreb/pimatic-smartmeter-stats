@@ -33,14 +33,11 @@ module.exports = {
         description: "enable to get faster timing for testing (Hour=10 sec, Day=1 minute, Week=3 minutes, Month=10 minutes)"
         default: false
   },
-  SmartmeterSolarDevice: {
+  SmartmeterLoggerDevice: {
     title: "Smartmeter Solar device"
     type: "object"
     extensions: ["xLink", "xAttributeOptions"]
     properties:
-      nrOfSamples:
-        description: "The number of 1 minute samples (default: 15)"
-        type: "number"
       variables:
         description: "Variables to add to the log row"
         type: "array"

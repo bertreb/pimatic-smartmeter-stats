@@ -40,9 +40,9 @@ module.exports = (env) ->
         configDef: deviceConfigDef.SmartmeterStatsDevice,
         createCallback: (config, lastState) => new SmartmeterStatsDevice(config, lastState, @framework, @dirPath)
       })
-      @framework.deviceManager.registerDeviceClass('SmartmeterSolarDevice', {
-        configDef: deviceConfigDef.SmartmeterSolarDevice,
-        createCallback: (config, lastState) => new SmartmeterSolarDevice(config, lastState, @framework, @dirPath)
+      @framework.deviceManager.registerDeviceClass('SmartmeterLoggerDevice', {
+        configDef: deviceConfigDef.SmartmeterLoggerDevice,
+        createCallback: (config, lastState) => new SmartmeterLoggerDevice(config, lastState, @framework, @dirPath)
       })
       @framework.deviceManager.registerDeviceClass('SmartmeterDegreedaysDevice', {
         configDef: deviceConfigDef.SmartmeterDegreedaysDevice,
@@ -262,7 +262,7 @@ module.exports = (env) ->
         jb.stop() for jb in @updateJobs
       super()
 
-  class SmartmeterSolarDevice extends env.devices.Device
+  class SmartmeterLoggerDevice extends env.devices.Device
 
     actions:
       resetSolarStats:
@@ -286,6 +286,16 @@ module.exports = (env) ->
       @_readData(@dataFullFilename)
       .then((data)=>
         @data = data
+      )
+
+      @attributes["lastlog"] =
+        description: "the last complete log filename"
+        type: "string"
+        acronym: "lastlog"
+        hidden: true
+      @attributeValues["lastlog"] = ""
+      @_createGetter("lastlog", =>
+        return Promise.resolve @attributeValues["lastlog"]
       )
 
       for _variable in @config.variables
@@ -353,6 +363,7 @@ module.exports = (env) ->
         cronTime:  everyDay
         onTick: =>
           @data = []
+          @emit "lastlog", @dataFullFilename
           @dataFullFilename = @_getFullFileName() # new day is new file
 
       if @updateJobs?
