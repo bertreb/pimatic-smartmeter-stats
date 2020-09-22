@@ -31,22 +31,25 @@ module.exports = (env) ->
   class SmartmeterStatsPlugin extends env.plugins.Plugin
     init: (app, @framework, @config) =>
 
-      @dirPath = path.resolve @framework.maindir, '../../smartmeter-data'
-      if !fs.existsSync(@dirPath)
-        fs.mkdirSync(@dirPath)
+      @root = path.resolve @framework.maindir, '../..'
+      @directory = 'smartmeter-data'
+
+      @pluginDataDirPath = path.resolve @root, @directory
+      if !fs.existsSync(@pluginDataDirPath)
+        fs.mkdirSync(@pluginDataDirPath)
 
       deviceConfigDef = require('./device-config-schema')
       @framework.deviceManager.registerDeviceClass('SmartmeterStatsDevice', {
         configDef: deviceConfigDef.SmartmeterStatsDevice,
-        createCallback: (config, lastState) => new SmartmeterStatsDevice(config, lastState, @framework, @dirPath)
+        createCallback: (config, lastState) => new SmartmeterStatsDevice(config, lastState, @framework, @root, @directory)
       })
       @framework.deviceManager.registerDeviceClass('SmartmeterLoggerDevice', {
         configDef: deviceConfigDef.SmartmeterLoggerDevice,
-        createCallback: (config, lastState) => new SmartmeterLoggerDevice(config, lastState, @framework, @dirPath)
+        createCallback: (config, lastState) => new SmartmeterLoggerDevice(config, lastState, @framework, @root, @directory)
       })
       @framework.deviceManager.registerDeviceClass('SmartmeterDegreedaysDevice', {
         configDef: deviceConfigDef.SmartmeterDegreedaysDevice,
-        createCallback: (config, lastState) => new SmartmeterDegreedaysDevice(config, lastState, @framework, @dirPath)
+        createCallback: (config, lastState) => new SmartmeterDegreedaysDevice(config, lastState, @framework, @root, @directory)
       })
 
       @framework.ruleManager.addActionProvider(new SmartmeterStatsActionProvider @framework, @config)
@@ -61,7 +64,7 @@ module.exports = (env) ->
       resetSmartmeterStats:
         description: "Resets the stats attribute values"
 
-    constructor: (@config, lastState, @framework, @dirPath) ->
+    constructor: (@config, lastState, @framework, @root, @directory) ->
 
       @id = @config.id
       @name = @config.name
@@ -71,7 +74,7 @@ module.exports = (env) ->
       @_vars = @framework.variableManager
       @_exprChangeListeners = []
       @logging = if @config.log? then @config.log else false
-      @statsLogFullFilename = path.join(@dirPath, './' + @id + '-data.json')
+      @statsLogFullFilename = path.join(@root, @directory, @id + '-data.json')
       @test = @config.test
 
       @attributeList = ["actual", "actualday", "fiveminute", "lastfiveminute", "hour", "lasthour", "day", "lastday", "week", "lastweek", "month", "lastmonth"]
@@ -268,7 +271,7 @@ module.exports = (env) ->
       resetSolarStats:
         description: "Resets the stats attribute values"
 
-    constructor: (@config, lastState, @framework, @dirPath) ->
+    constructor: (@config, lastState, @framework, @root, @directory) ->
 
       @id = @config.id
       @name = @config.name
@@ -363,7 +366,7 @@ module.exports = (env) ->
         cronTime:  everyDay
         onTick: =>
           @data = []
-          @emit "lastlog", @dataFullFilename
+          @emit "lastlog", @_getRelativeFileName()
           @dataFullFilename = @_getFullFileName() # new day is new file
 
       if @updateJobs?
@@ -377,9 +380,18 @@ module.exports = (env) ->
       moment = Moment(d)
       datestamp = moment.format("YYYYMMDD")
 
-      _dataFullFilename = path.join(@dirPath, './' + datestamp + '-' + @id + '.csv')
+      _dataFullFilename = path.join(@root, @directory, datestamp + '-' + @id + '.csv')
 
       return _dataFullFilename
+
+    _getRelativeFileName:()=>
+      d = new Date()
+      moment = Moment(d)
+      datestamp = moment.format("YYYYMMDD")
+
+      _dataRelativeFilename = path.join(@directory, datestamp + '-' + @id + '.csv')
+
+      return _dataRelativeFilename
 
 
     _readData: (_dataFullFilename) =>
@@ -508,7 +520,7 @@ module.exports = (env) ->
         acronym: 'calcTemp'
       ###
 
-    constructor: (@config, lastState, @framework, @dirPath) ->
+    constructor: (@config, lastState, @framework, @root, @directory) ->
       @id = @config.id
       @name = @config.name
       @test = @config.test
@@ -531,10 +543,10 @@ module.exports = (env) ->
       @attributes["energy"].unit = if @config.energyUnit? then @config.energyUnit else ""
 
       @logging = if @config.log? then @config.log else true
-      @ddDataFullFilename = path.join(@dirPath, './' + @id + '-data.json')
-      @ddBackupDataFullFilename = path.join(@dirPath, './backup-' + @id + '-data.json')
-      @ddVarsFullFilename = path.join(@dirPath, './' + @id + '-vars.json')
-      @ddBackupVarsFullFilename = path.join(@dirPath, './backup-' + @id + '-vars.json')
+      @ddDataFullFilename = path.join(@root, @directory, @id + '-data.json')
+      @ddBackupDataFullFilename = path.join(@dirPath, @directory, 'backup-' + @id + '-data.json')
+      @ddVarsFullFilename = path.join(@dirPath, @directory,  @id + '-vars.json')
+      @ddBackupVarsFullFilename = path.join(@dirPath, @directory, 'backup-' + @id + '-vars.json')
 
       @tempSampler = new Sampler()
       @tempInSampler = new Sampler()

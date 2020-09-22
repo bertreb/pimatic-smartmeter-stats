@@ -51,3 +51,5 @@
   * reset actualday at 00:00
 * 20200921, v0.2.22
   * added logger stats device for daily csv log file
+* 20200922, v0.2.23
+  * some updates if directory paths
